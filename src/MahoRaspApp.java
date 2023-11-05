@@ -14,6 +14,7 @@ import javax.microedition.lcdui.CommandListener;
 import javax.microedition.lcdui.DateField;
 import javax.microedition.lcdui.Display;
 import javax.microedition.lcdui.Displayable;
+import javax.microedition.lcdui.Font;
 import javax.microedition.lcdui.Form;
 import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
@@ -29,7 +30,7 @@ import cc.nnproject.json.JSONObject;
 public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateListener, ItemCommandListener {
 
 	private static final Command exitCmd = new Command("Выход", Command.EXIT, 1);
-	private static final Command findCmd = new Command("Искать", Command.ITEM, 2);
+	private static final Command submitCmd = new Command("Искать", Command.ITEM, 2);
 	private static final Command chooseCmd = new Command("Выбрать город", Command.ITEM, 2);
 	
 	private boolean started;
@@ -42,7 +43,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 	private Form loadingForm;
 	
 	private DateField dateField;
-	private StringItem find;
+	private StringItem submitBtn;
 	private StringItem text;
 	private StringItem fromBtn;
 	private StringItem toBtn;
@@ -64,7 +65,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		midlet = this;
 		loadingForm = new Form("Загрузка");
 		mainForm = new Form("Выф");
-		dateField = new DateField("Дата", DateField.DATE);
+		dateField = new DateField("", DateField.DATE);
 		dateField.setDate(new Date(System.currentTimeMillis()));
 		mainForm.append(dateField);
 		fromBtn = new StringItem("Откуда", "Не выбрано", StringItem.BUTTON);
@@ -79,14 +80,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		toBtn.setDefaultCommand(chooseCmd);
 		toBtn.setItemCommandListener(this);
 		mainForm.append(toBtn);
-		find = new StringItem(null, "Ввод", StringItem.BUTTON);
-		find.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
-		find.addCommand(findCmd);
-		find.setDefaultCommand(findCmd);
-		find.setItemCommandListener(this);
-		mainForm.append(find);
+		submitBtn = new StringItem(null, "Поиск", StringItem.BUTTON);
+		submitBtn.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+		submitBtn.addCommand(submitCmd);
+		submitBtn.setDefaultCommand(submitCmd);
+		submitBtn.setItemCommandListener(this);
+		mainForm.append(submitBtn);
 		text = new StringItem(null, "");
-		text.setLayout(Item.LAYOUT_NEWLINE_BEFORE);
+		text.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_BEFORE);
 		mainForm.append(text);
 		mainForm.setCommandListener(this);
 		mainForm.setItemStateListener(this);
@@ -164,39 +165,59 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			notifyDestroyed();
 			return;
 		}
-		if(c == findCmd) {
-			if(fromZoneId == 0 || toZoneId == 0) {
-				text.setText("зона не выбрана");
+		if(c == submitCmd) {
+			if(fromSettlement == null && fromStation == null) {
+				text.setText("не выбран пункт отправки");
 				return;
 			}
-			if(fromSettlement == null || toSettlement == null) {
-				text.setText("город не выбран");
+			if(toSettlement == null && toStation == null) {
+				text.setText("не выбран пункт назначения");
 				return;
 			}
+			mainForm.deleteAll();
+			mainForm.append(dateField);
+			mainForm.append(fromBtn);
+			mainForm.append(toBtn);
+			mainForm.append(submitBtn);
+			mainForm.append(text);
+			Display.getDisplay(this).setCurrentItem(text);
 			try {
-				String city_from = zones.getObject(fromZoneName).getObject("s").getString(fromSettlement);
-				String city_to = zones.getObject(toZoneName).getObject("s").getString(toSettlement);
-				if(city_from == null || city_to == null) {
-					text.setText("город введен неправильно");
-					return;
+				String city_from = null;
+				String city_to = null;
+				if(fromStation == null || toStation == null) {
+					if(fromZoneId != 0 && fromSettlement != null) 
+						city_from = zones.getObject(fromZoneName).getObject("s").getString(fromSettlement);
+					if(toZoneId != 0 && toSettlement != null)
+						city_to = zones.getObject(toZoneName).getObject("s").getString(toSettlement);
+					if(city_from == null || city_to == null) {
+						Enumeration e = MahoRaspApp.zones.getTable().elements();
+						while(e.hasMoreElements()) {
+							JSONObject j = ((JSONObject) e.nextElement()).getObject("s");
+							if(city_from == null && fromSettlement != null) city_from = j.getNullableString(fromSettlement);
+							if(city_to == null && toSettlement != null) city_to = j.getNullableString(toSettlement);
+							if((city_from != null || fromSettlement == null) && (city_to != null || toSettlement == null)) break;
+						}
+					}
 				}
 				Calendar cal = Calendar.getInstance();
 				cal.setTime(dateField.getDate());
 				String date = cal.get(Calendar.YEAR) + "-" + (cal.get(Calendar.MONTH) + 1) + "-" + cal.get(Calendar.DAY_OF_MONTH);
 				text.setLabel("Результаты");
-				JSONObject j = api("search_on_date?city_from=" + city_from + "&city_to=" + city_to + "&date=" + date);
+				String params = (fromStation != null ? ("station_from=" + fromStation) : ("city_from=" + city_from)) + "&" + (toStation != null ? ("station_to=" + toStation) : ("city_to=" + city_to));
+				JSONObject j = api("search_on_date?date=" + date + "&" + params);
 				//text.setText(j.toString());
-				String res = "";
 				JSONArray days = j.getArray("days");
 				for(Enumeration e2 = days.elements(); e2.hasMoreElements();) {
+					
 					JSONObject day = (JSONObject) e2.nextElement();
-					res += day.getString("date") + ":\n";
+					mainForm.append(day.getString("date") + ":\n");
 					JSONArray segments = day.getArray("segments");
 					for(Enumeration e3 = segments.elements(); e3.hasMoreElements();) {
+						String res = "";
 						JSONObject seg = (JSONObject) e3.nextElement();
 						
 						JSONObject thread = seg.getObject("thread");
-						res += thread.getString("number") + " " + thread.getString("title") + "\n";
+						res += thread.getString("title") + "\n";
 						res += date(seg.getObject("departure").getString("time"));
 						res += " - ";
 						res += date(seg.getObject("arrival").getString("time")) + "\n";
@@ -204,16 +225,18 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 						if(thread.has("stops")) {
 							res += " Остановки: " + thread.getString("stops");
 						}
-						res += "\n";
-						
 						
 						JSONObject tariff = seg.getNullableObject("tariff");
-						if(tariff != null) res += tariff.getString("value") + " " + tariff.getString("currency") +"\n";
-						res += "--\n";
+						if(tariff != null) res += "\n" + tariff.getString("value") + " " + tariff.getString("currency");
+						//res += "--\n";
+
+						StringItem s = new StringItem(thread.getString("number"), res);
+						s.setFont(Font.getFont(0, 0, 8));
+						mainForm.append(s);
 					}
-					res += "----\n";
+					//res += "----\n";
 				}
-				text.setText(res);
+				//text.setText(res);
 			} catch (Exception e) {
 				e.printStackTrace();
 				text.setText(e.toString());
@@ -377,7 +400,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			hc = (HttpConnection) Connector.open(url);
 			hc.setRequestMethod("GET");
 			int r = hc.getResponseCode();
-			if(r != 200) throw new IOException(r + " " + hc.getResponseMessage());
+			//if(r != 200) throw new IOException(r + " " + hc.getResponseMessage());
 			in = hc.openInputStream();
 			int read;
 			o = new ByteArrayOutputStream();

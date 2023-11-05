@@ -27,6 +27,7 @@ import java.util.Vector;
 public class JSONArray extends AbstractJSON {
 
 	private Vector vector;
+	private boolean parsed;
 
 	public JSONArray() {
 		this.vector = new Vector();
@@ -418,6 +419,8 @@ public class JSONArray extends AbstractJSON {
 	}
 	
 	public void parseTree() {
+		if(parsed) return;
+		parsed = true;
 		int size = size();
 		int i = 0;
 		while (i < size) {
