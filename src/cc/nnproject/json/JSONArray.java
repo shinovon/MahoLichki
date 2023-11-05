@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022 Arman Jussupgaliyev
+Copyright (c) 2023 Arman Jussupgaliyev
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -38,11 +38,14 @@ public class JSONArray extends AbstractJSON {
 	
 	public Object get(int index) throws JSONException {
 		try {
-			Object o = vector.elementAt(index);
-			if (o instanceof JSONString) {
-				vector.setElementAt(o = JSON.parseJSON(o.toString()), index);
+			if(index >= 0 && index < vector.size()) {
+				Object o = JSON.getJSON(vector.elementAt(index));
+				if (o instanceof JSONString)
+					vector.setElementAt(o = JSON.parseJSON(o.toString()), index);
+				else if (o == JSON.json_null)
+					return null;
+				return o;
 			}
-			return o;
 		} catch (Exception e) {
 		}
 		throw new JSONException("No value at " + index);
@@ -56,16 +59,24 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
+	public Object getNullable(int index) {
+		return get(index, null);
+	}
+	
 	public String getString(int index) throws JSONException {
-		return get(index).toString();
+		return String.valueOf(get(index));
 	}
 	
 	public String getString(int index, String def) {
 		try {
-			return get(index).toString();
+			return String.valueOf(get(index));
 		} catch (Exception e) {
 			return def;
 		}
+	}
+	
+	public String getNullableString(int index) {
+		return getString(index, null);
 	}
 	
 	public JSONObject getObject(int index) throws JSONException {
@@ -76,12 +87,16 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public JSONObject getNullableObject(int index) {
+	public JSONObject getObject(int index, JSONObject def) {
 		try {
 			return getObject(index);
 		} catch (Exception e) {
-			return null;
 		}
+		return def;
+	}
+	
+	public JSONObject getNullableObject(int index) {
+		return getObject(index, null);
 	}
 	
 	public JSONArray getArray(int index) throws JSONException {
@@ -92,16 +107,20 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public JSONArray getNullableArray(int index) {
+	public JSONArray getArray(int index, JSONArray def) {
 		try {
 			return getArray(index);
 		} catch (Exception e) {
-			return null;
 		}
+		return def;
+	}
+	
+	public JSONArray getNullableArray(int index) {
+		return getArray(index, null);
 	}
 	
 	public int getInt(int index) throws JSONException {
-		return (int) JSON.getLong(get(index)).longValue();
+		return (int) JSON.getLong(get(index));
 	}
 	
 	public int getInt(int index, int def) {
@@ -113,7 +132,7 @@ public class JSONArray extends AbstractJSON {
 	}
 	
 	public long getLong(int index) throws JSONException {
-		return JSON.getLong(get(index)).longValue();
+		return JSON.getLong(get(index));
 	}
 
 	public long getLong(int index, long def) {
@@ -125,7 +144,7 @@ public class JSONArray extends AbstractJSON {
 	}
 	
 	public double getDouble(int index) throws JSONException {
-		return JSON.getDouble(get(index)).doubleValue();
+		return JSON.getDouble(get(index));
 	}
 
 	public double getDouble(int index, double def) {
@@ -158,6 +177,10 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
+	public boolean isNull(int index) {
+		return JSON.isNull(getNullable(index));
+	}
+	
 	public void add(String s) {
 		vector.addElement(s);
 	}
@@ -167,15 +190,15 @@ public class JSONArray extends AbstractJSON {
 	}
 
 	public void add(double d) {
-		vector.addElement(Double.toString(d));
+		vector.addElement(new Double(d));
 	}
 	
 	public void add(int i) {
-		vector.addElement(Integer.toString(i));
+		vector.addElement(new Integer(i));
 	}
 
 	public void add(long l) {
-		vector.addElement(Long.toString(l));
+		vector.addElement(new Long(l));
 	}
 	
 	public void add(Object obj) {
@@ -191,15 +214,15 @@ public class JSONArray extends AbstractJSON {
 	}
 
 	public void set(int idx, double d) {
-		vector.setElementAt(Double.toString(d), idx);
+		vector.setElementAt(new Double(d), idx);
 	}
 	
 	public void set(int idx, int i) {
-		vector.setElementAt(Integer.toString(i), idx);
+		vector.setElementAt(new Integer(i), idx);
 	}
 
 	public void set(int idx, long l) {
-		vector.setElementAt(Long.toString(l), idx);
+		vector.setElementAt(new Long(l), idx);
 	}
 	
 	public void set(int idx, Object obj) {
@@ -215,15 +238,15 @@ public class JSONArray extends AbstractJSON {
 	}
 
 	public void put(int idx, double d) {
-		vector.insertElementAt(Double.toString(d), idx);
+		vector.insertElementAt(new Double(d), idx);
 	}
 	
 	public void put(int idx, int i) {
-		vector.insertElementAt(Integer.toString(i), idx);
+		vector.insertElementAt(new Integer(i), idx);
 	}
 
 	public void put(int idx, long l) {
-		vector.insertElementAt(Long.toString(l), idx);
+		vector.insertElementAt(new Long(l), idx);
 	}
 	
 	public void put(int idx, Object obj) {
@@ -270,15 +293,11 @@ public class JSONArray extends AbstractJSON {
         	if(a == null) {
         		return false;
         	}
-        	if(a instanceof JSONObject) {
-        		if (!((JSONObject)a).similar(b)) {
+        	if(a instanceof AbstractJSON) {
+        		if (!((AbstractJSON)a).similar(b)) {
         			return false;
         		}
-        	} else if(a instanceof JSONArray) {
-        		if (!((JSONArray)a).similar(b)) {
-        			return false;
-        		}
-        	} else  if(!a.equals(b)) {
+        	} else if(!a.equals(b)) {
         		return false;
         	}
         }
@@ -289,20 +308,26 @@ public class JSONArray extends AbstractJSON {
 		int size = size();
 		if (size == 0)
 			return "[]";
-		String s = "[";
+		StringBuffer s = new StringBuffer("[");
 		int i = 0;
-		while(i < size) {
+		while (i < size) {
 			Object v = vector.elementAt(i);
 			if (v instanceof AbstractJSON) {
-				s += ((AbstractJSON) v).build();
+				s.append(((AbstractJSON) v).build());
 			} else if (v instanceof String) {
-				s += "\"" + JSON.escape_utf8(v.toString()) + "\"";
-			} else s += v;
+				s.append("\"").append(JSON.escape_utf8((String) v)).append("\"");
+			} else if(JSON.json_null.equals(v)) {
+				s.append((String) null);
+			} else {
+				s.append(String.valueOf(v));
+			}
 			i++;
-			if (i < size) s += ",";
+			if (i < size) {
+				s.append(",");
+			}
 		}
-		s += "]";
-		return s;
+		s.append("]");
+		return s.toString();
 	}
 
 	protected String format(int l) {
@@ -310,13 +335,12 @@ public class JSONArray extends AbstractJSON {
 		if (size == 0)
 			return "[]";
 		String t = "";
-		String s = "";
 		for (int i = 0; i < l; i++) {
-			t += JSON.FORMAT_TAB;
+			t = t.concat(JSON.FORMAT_TAB);
 		}
-		String t2 = t + JSON.FORMAT_TAB;
-		s += "[\n";
-		s += t2;
+		String t2 = t.concat(JSON.FORMAT_TAB);
+		StringBuffer s = new StringBuffer("[\n");
+		s.append(t2);
 		for (int i = 0; i < size; ) {
 			Object v = null;
 			try {
@@ -324,19 +348,25 @@ public class JSONArray extends AbstractJSON {
 			} catch (JSONException e) {
 			}
 			if (v instanceof AbstractJSON) {
-				s += ((AbstractJSON) v).format(l + 1);
+				s.append(((AbstractJSON) v).format(l + 1));
 			} else if (v instanceof String) {
-				s += "\"" + JSON.escape_utf8(v.toString()) + "\"";
-			} else s += v;
+				s.append("\"").append(JSON.escape_utf8((String) v)).append("\"");
+			} else if(v == JSON.json_null) {
+				s.append((String) null);
+			} else {
+				s.append(v);
+			}
 			i++;
-			if(i < size) s += ",\n" + t2;
+			if (i < size()) {
+				s.append(",\n").append(t2);
+			}
 		}
 		if (l > 0) {
-			s += "\n" + t + "]";
+			s.append("\n").append(t).append("]");
 		} else {
-			s += "\n]";
+			s.append("\n]");
 		}
-		return s;
+		return s.toString();
 	}
 
 	public Enumeration elements() {
@@ -359,10 +389,72 @@ public class JSONArray extends AbstractJSON {
 		int i = offset;
 		int j = 0;
 		while(i < arr.length && j < length && j < size()) {
-			Object o = get(j++);
-			if(o == JSON.null_equivalent) o = null;
-			arr[i++] = o;
+			arr[i++] = get(j++);
 		}
+	}
+	
+	public boolean has(String s) {
+		return vector.contains(s);
+	}
+	
+	public boolean has(boolean b) {
+		return vector.contains(new Boolean(b));
+	}
+
+	public boolean has(double d) {
+		return vector.contains(new Double(d));
+	}
+	
+	public boolean has(int i) {
+		return vector.contains(new Integer(i));
+	}
+
+	public boolean has(long l) {
+		return vector.contains(new Long(l));
+	}
+	
+	public boolean has(Object o) {
+		return vector.contains(JSON.getJSON(o));
+	}
+	
+	public void parseTree() {
+		int size = size();
+		int i = 0;
+		while (i < size) {
+			Object v = vector.elementAt(i);
+			if (v instanceof JSONObject) {
+				((JSONObject) v).parseTree();
+			} else if (v instanceof JSONArray) {
+				((JSONArray) v).parseTree();
+			} else if (v instanceof JSONString) {
+				vector.setElementAt(v = JSON.parseJSON(v.toString()), i);
+			}
+			i++;
+		}
+	}
+	
+	public Vector getVector() {
+		parseTree();
+		return vector;
+	}
+
+	public Vector copy() {
+		Vector copy = new Vector();
+		int size = size();
+		if (size == 0)
+			return copy;
+		int i = 0;
+		while (i < size) {
+			Object v = get(i);
+			if (v instanceof JSONObject) {
+				v = ((JSONObject) v).copy();
+			} else if (v instanceof JSONArray) {
+				v = ((JSONArray) v).copy();
+			}
+			copy.addElement(v);
+			i++;
+		}
+		return copy;
 	}
 
 }
