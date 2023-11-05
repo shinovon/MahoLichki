@@ -1,0 +1,7 @@
+MIDlet-Vendor: nnproject
+MIDlet-Version: 1.0.0
+MicroEdition-Configuration: CLDC-1.1
+MIDlet-1: MahoRasp,,MahoRaspApp
+MIDlet-Name: MahoRasp
+MicroEdition-Profile: MIDP-2.0
+MIDlet-Jar-URL: MahoRasp.jar
