@@ -36,6 +36,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 	private static final Command itemCmd = new Command("Остановки", Command.ITEM, 2);
 	protected static final Command okCmd = new Command("Ок", Command.OK, 1);
 	private static final Command backCmd = new Command("Назад", Command.BACK, 1);
+	private static final Command showGoneCmd = new Command("Показать ушедшие", Command.SCREEN, 3);
+	private static final Command hideGoneCmd = new Command("Скрыть ушедшие", Command.SCREEN, 3);
+	private static final Command settingsCmd = new Command("Настройки", Command.SCREEN, 4);
+	private static final Command aboutCmd = new Command("О программе", Command.SCREEN, 5);
 	
 	private boolean started;
 	
@@ -54,26 +58,31 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 	
 	private int fromZoneId;
 	private String fromZoneName;
-	private String fromSettlement;
+	private String fromSettlement; // title
 	private String fromStation; // esr
 	
 	private int toZoneId;
 	private String toZoneName;
-	private String toSettlement;
+	private String toSettlement; // title
 	private String toStation; // esr
 	
-	private int choice;
+	private int choosing; // 1 - отправление, 2 - прибытие
 	private Alert progressAlert;
 	private int downloadZone;
 	private int run;
 	private boolean running;
 	private String itemNumber;
 	private String searchDate;
+	private boolean showGone;
 
 	public MahoRaspApp() {
 		midlet = this;
 		loadingForm = new Form("Загрузка");
+		loadingForm.append("Парс зон");
 		mainForm = new Form("Выф");
+		mainForm.addCommand(exitCmd);
+		mainForm.addCommand(showGone ? hideGoneCmd : showGoneCmd);
+		mainForm.addCommand(aboutCmd);
 		dateField = new DateField("Дата", DateField.DATE);
 		dateField.setDate(new Date(System.currentTimeMillis()));
 		mainForm.append(dateField);
@@ -100,7 +109,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		mainForm.append(text);
 		mainForm.setCommandListener(this);
 		mainForm.setItemStateListener(this);
-		mainForm.addCommand(exitCmd);
 	}
 
 	protected void destroyApp(boolean arg0) {
@@ -121,12 +129,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			return;
 		}
 		display(mainForm);
+		loadingForm = null;
 	}
 	
 	public void commandAction(Command c, Item i) {
 		if(running) return; // не реагировать если сейчас что-то грузится
 		if(c == chooseCmd) {
-			choice = i == fromBtn ? 1 : 2;
+			choosing = i == fromBtn ? 1 : 2;
 			Alert a = new Alert("");
 			a.setString("Выбрать станцию или город?");
 			a.addCommand(new Command("Станция", Command.OK, 1));
@@ -151,7 +160,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 	public void select(int type, String s, String s2) {
 		if(type == 1) {
 			int id = zones.getObject(s).getInt("i");
-			if(choice == 1) {
+			if(choosing == 1) {
 				fromZoneName = s;
 				fromZoneId = id;
 			} else {
@@ -182,7 +191,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			return;
 		}
 		if(type == 2) {
-			if(choice == 1) {
+			if(choosing == 1) {
 				fromBtn.setText(fromSettlement = s);
 			} else {
 				toBtn.setText(toSettlement = s);
@@ -191,7 +200,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			return;
 		}
 		if(type == 3) {
-			if(choice == 1) {
+			if(choosing == 1) {
 				fromStation = s;
 				fromBtn.setText(s2);
 			} else {
@@ -215,32 +224,19 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		if(c == Alert.DISMISS_COMMAND) {
 			return;
 		}
-		if(d instanceof Alert) {
-			switch (c.getPriority()) {
-			case 1:
-				display(new ChoiceForm(1, choice == 1 ? fromZoneId : toZoneId, null));
-				break;
-			case 2:
-				if(choice == 1)
-					fromZoneId = 0;
-				else
-					toZoneId = 0;
-				display(new ChoiceForm(2, 0, null));
-				break;
-			case 3:
-				display(new ChoiceForm(2, choice == 1 ? fromZoneId : toZoneId, null));
-				break;
-			case 4:
-				progressAlert = new Alert("");
-				progressAlert.setTimeout(Alert.FOREVER);
-				progressAlert.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
-				progressAlert.setTitle("Загрузка станций");
-				progressAlert.removeCommand(Alert.DISMISS_COMMAND);
-				display(progressAlert);
-				run = 1;
-				new Thread(this).start();
-				break;
-			}
+		if(c == showGoneCmd) {
+			showGone = true;
+			mainForm.removeCommand(showGoneCmd);
+			mainForm.addCommand(hideGoneCmd);
+			commandAction(submitCmd, d);
+			return;
+		}
+		if(c == hideGoneCmd) {
+			showGone = false;
+			mainForm.removeCommand(hideGoneCmd);
+			mainForm.addCommand(showGoneCmd);
+			commandAction(submitCmd, d);
+			return;
 		}
 		if(c == submitCmd) {
 			if(running) return;
@@ -258,10 +254,44 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			mainForm.append(toBtn);
 			mainForm.append(submitBtn);
 			mainForm.append(text);
-			//Display.getDisplay(this).setCurrentItem(text);
+//			Display.getDisplay(this).setCurrentItem(text);
 			run = 2;
 			new Thread(this).start();
 			return;
+		}
+		if(c == aboutCmd) {
+			Form f = new Form("О программе");
+			f.addCommand(backCmd);
+			f.setCommandListener(this);
+			f.append("292 labs");
+			display(f);
+		}
+		if(d instanceof Alert) {
+			switch (c.getPriority()) {
+			case 1:
+				display(new ChoiceForm(1, choosing == 1 ? fromZoneId : toZoneId, null));
+				break;
+			case 2:
+				if(choosing == 1)
+					fromZoneId = 0;
+				else
+					toZoneId = 0;
+				display(new ChoiceForm(2, 0, null));
+				break;
+			case 3:
+				display(new ChoiceForm(2, choosing == 1 ? fromZoneId : toZoneId, null));
+				break;
+			case 4:
+				progressAlert = new Alert("");
+				progressAlert.setTimeout(Alert.FOREVER);
+				progressAlert.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
+				progressAlert.setTitle("Загрузка станций");
+				progressAlert.removeCommand(Alert.DISMISS_COMMAND);
+				display(progressAlert);
+				run = 1;
+				new Thread(this).start();
+				break;
+			}
 		}
 	}
 	
@@ -337,7 +367,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 						JSONObject departure = seg.getObject("departure");
 						// пропускать ушедшие
 						Calendar c = parseDate(departure.getString("time_utc"));
-						if(oneDay(c, server_time) && c.after(server_time)) continue;
+						if(!showGone && oneDay(c, server_time) && c.after(server_time)) continue;
 						
 						JSONObject thread = seg.getObject("thread");
 						JSONObject arrival = seg.getObject("arrival");
@@ -389,7 +419,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 	}
 	
 	public void cancelChoice() {
-		if(choice == 1) {
+		if(choosing == 1) {
 			fromZoneName = null;
 			fromSettlement = null;
 			fromStation = null;
