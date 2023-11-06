@@ -32,7 +32,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 
 	private static final Command exitCmd = new Command("Выход", Command.EXIT, 1);
 	private static final Command submitCmd = new Command("Искать", Command.ITEM, 2);
-	private static final Command chooseCmd = new Command("Выбрать город", Command.ITEM, 2);
+	private static final Command chooseCmd = new Command("Выбрать", Command.ITEM, 2);
 	private static final Command itemCmd = new Command("Остановки", Command.ITEM, 2);
 	protected static final Command okCmd = new Command("Ок", Command.OK, 1);
 	private static final Command backCmd = new Command("Назад", Command.BACK, 1);
@@ -79,7 +79,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		midlet = this;
 		loadingForm = new Form("Загрузка");
 		loadingForm.append("Парс зон");
-		mainForm = new Form("Выф");
+		mainForm = new Form("Махолички");
 		mainForm.addCommand(exitCmd);
 		mainForm.addCommand(showGone ? hideGoneCmd : showGoneCmd);
 		mainForm.addCommand(aboutCmd);
@@ -156,6 +156,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			display(a);
 			run = 3;
 			new Thread(this).start();
+			return;
 		}
 		this.commandAction(c, mainForm);
 	}
@@ -260,7 +261,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			Form f = new Form("О программе");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
-			f.append("292 labs");
+			f.append("Махолички\nНазвание придумал sym_ansel\nКлон Яндекс.Электричек от Махо Химемии\nРазработчик: shinovon");
 			display(f);
 		}
 		if(c == settingsCmd) {
@@ -308,7 +309,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		switch(run) {
 		case 1: // скачать станции зоны
 			try {
-				progressAlert.setTitle("Скачивание");
+				progressAlert.setString("Скачивание");
 				Enumeration e = api("zone/" + downloadZone).getArray("zone_stations").elements();
 				progressAlert.setString("Парсинг");
 				JSONArray r = new JSONArray();
@@ -328,7 +329,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 				rs.closeRecordStore();
 				rs = null;
 				display(new ChoiceForm(3, downloadZone, r));
-				return;
+				break;
 			} catch (Exception e) {
 				progressAlert.setString(e.toString());
 			}
@@ -363,6 +364,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 				
 				String params = (fromStation != null ? ("station_from=" + fromStation) : ("city_from=" + city_from)) + "&" + (toStation != null ? ("station_to=" + toStation) : ("city_to=" + city_to));
 				JSONObject j = api("search_on_date?date=" + searchDate + "&" + params);
+				// время сервера в UTC
 				Calendar server_time = parseDate(j.getObject("date_time").getString("server_time"));
 
 				text.setLabel("");
@@ -390,6 +392,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 						}
 						
 						// время отправления - время прибытия (длина)
+						// показывается местное время
 						res += time(departure.getString("time"));
 						res += " - ";
 						res += time(arrival.getString("time"));
@@ -404,7 +407,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 
 						StringItem s = new StringItem(thread.getString("number"), res);
 						s.setFont(Font.getFont(0, 0, 8));
-						//s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_BEFORE);
+//						s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_BEFORE);
 						s.addCommand(itemCmd);
 						s.setDefaultCommand(itemCmd);
 						s.setItemCommandListener(this);
