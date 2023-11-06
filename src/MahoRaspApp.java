@@ -367,7 +367,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 						JSONObject departure = seg.getObject("departure");
 						// пропускать ушедшие
 						Calendar c = parseDate(departure.getString("time_utc"));
-						if(!showGone && oneDay(c, server_time) && c.after(server_time)) continue;
+						if(!showGone && oneDay(c, server_time) && c.before(server_time)) continue;
 						
 						JSONObject thread = seg.getObject("thread");
 						JSONObject arrival = seg.getObject("arrival");
