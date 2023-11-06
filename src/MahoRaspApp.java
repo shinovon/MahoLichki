@@ -374,7 +374,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		case 3:
 			try {
 				// TODO
-				api("station_schedule_on_date/" + itemNumber + "?date=" + searchDate);
+//				api("station_schedule_on_date/" + itemNumber + "?date=" + searchDate);
 				Form f = new Form(itemNumber);
 				f.addCommand(backCmd);
 				f.setCommandListener(this);
