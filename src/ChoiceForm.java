@@ -118,12 +118,13 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 		}
 		searching = false;
 		if(choice.getSelectedIndex() != -1) {
-			if(cancel) return;
+			if(!cancel) return;
 			removeCommand(cancelCmd);
 			addCommand(doneCmd);
 			cancel = false;
+			return;
 		}
-		if(!cancel) return;
+		if(cancel) return;
 		removeCommand(doneCmd);
 		addCommand(cancelCmd);
 		cancel = true;
