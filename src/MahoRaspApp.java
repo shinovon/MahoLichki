@@ -323,10 +323,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 				text.setText("Загрузка");
 				String params = (fromStation != null ? ("station_from=" + fromStation) : ("city_from=" + city_from)) + "&" + (toStation != null ? ("station_to=" + toStation) : ("city_to=" + city_to));
 				JSONObject j = api("search_on_date?date=" + searchDate + "&" + params);
+				Calendar server_time = parseDate(j.getObject("date_time").getString("server_time"));
 
-				text.setText("");
-				long server_time = timestamp(j.getObject("date_time").getString("server_time"));
-				
+				text.setLabel("");
+				text.setText("Результаты");
 				for(Enumeration e2 = j.getArray("days").elements(); e2.hasMoreElements();) {
 					
 					JSONObject day = (JSONObject) e2.nextElement();
@@ -336,14 +336,15 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 
 						JSONObject departure = seg.getObject("departure");
 						// пропускать ушедшие
-						if(timestamp(departure.getString("time_utc")) < server_time) continue;
+						Calendar c = parseDate(departure.getString("time_utc"));
+						if(oneDay(c, server_time) && c.after(server_time)) continue;
 						
 						JSONObject thread = seg.getObject("thread");
 						JSONObject arrival = seg.getObject("arrival");
 
 						String res = "";
-						if(arrival.has("platform")) {
-							res += arrival.getString("platform") + "\n";
+						if(departure.has("platform")) {
+							res += departure.getString("platform") + "\n";
 						}
 						res += time(departure.getString("time"));
 						res += " - ";
@@ -476,9 +477,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		return n(c.get(Calendar.HOUR_OF_DAY)) + ":" + n(c.get(Calendar.MINUTE));
 	}
 	
-
 	public static long timestamp(String date) {
 		return parseDate(date).getTime().getTime();
+	}
+	
+	public static boolean oneDay(Calendar a, Calendar b) {
+		return a.get(Calendar.DAY_OF_MONTH) == b.get(Calendar.DAY_OF_MONTH) &&
+				a.get(Calendar.MONTH) == b.get(Calendar.MONTH) &&
+				a.get(Calendar.YEAR) == b.get(Calendar.YEAR);
 	}
 	
 	static String localizeMonthWithCase(int month) {
