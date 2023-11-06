@@ -261,7 +261,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			Form f = new Form("О программе");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
-			f.append("Махолички\nНазвание придумал sym_ansel\nКлон Яндекс.Электричек от Махо Химемии\nРазработчик: shinovon");
+			f.append("Махолички\nКлон Яндекс.Электричек от Махо Химемии\nРазработчик: shinovon\nНазвание придумал: sym_ansel");
 			display(f);
 		}
 		if(c == settingsCmd) {
@@ -370,12 +370,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 				text.setLabel("");
 				text.setText("Результаты");
 				
+				int count = 0;
 				// парс маршрутов
 				for(Enumeration e2 = j.getArray("days").elements(); e2.hasMoreElements();) { // дни
 					JSONObject day = (JSONObject) e2.nextElement();
 					//mainForm.append(day.getString("date") + "\n");
 					for(Enumeration e3 = day.getArray("segments").elements(); e3.hasMoreElements();) { // сегменты
 						JSONObject seg = (JSONObject) e3.nextElement();
+						count++;
 
 						JSONObject departure = seg.getObject("departure");
 						Calendar c = parseDate(departure.getString("time_utc"));
@@ -391,6 +393,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 							res += departure.getString("platform") + "\n";
 						}
 						
+						// TODO: опоздание
 						// время отправления - время прибытия (длина)
 						// показывается местное время
 						res += time(departure.getString("time"));
@@ -413,6 +416,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 						s.setItemCommandListener(this);
 						mainForm.append(s);
 					}
+				}
+				if(count == 0) {
+					text.setLabel("Результаты");
+					text.setText("Пусто");
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
