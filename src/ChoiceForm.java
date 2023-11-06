@@ -14,6 +14,7 @@ import javax.microedition.lcdui.TextField;
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
 
+// форма поиска
 public class ChoiceForm extends Form implements CommandListener, ItemCommandListener, ItemStateListener, Runnable {
 	
 	private static final Command searchCmd = new Command("Поиск", Command.ITEM, 2);
@@ -39,28 +40,20 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 		field.setDefaultCommand(searchCmd);
 		field.setItemCommandListener(this);
 		append(field);
+		// TODO: ж2ме лоадер
 //		StringItem btn = new StringItem("", "Поиск", StringItem.BUTTON);
 //		btn.addCommand(searchCmd);
 //		btn.setDefaultCommand(searchCmd);
 //		btn.setItemCommandListener(this);
 //		append(btn);
 		choice = new ChoiceGroup("", Choice.EXCLUSIVE);
-		//choice.addCommand(doneCmd);
-		//choice.setDefaultCommand(doneCmd);
-		//choice.setItemCommandListener(this);
+//		choice.addCommand(doneCmd);
+//		choice.setDefaultCommand(doneCmd);
+//		choice.setItemCommandListener(this);
 		append(choice);
 		addCommand(cancelCmd);
 		setCommandListener(this);
 		setItemStateListener(this);
-		/*
-		if(type == 3) {
-			Enumeration e = stations.elements();
-			while(e.hasMoreElements()) {
-				JSONObject s = (JSONObject) e.nextElement();
-				choice.append(s.getString("d") + " - " + s.getString("t"), null);
-			}
-		}
-		*/
 	}
 	
 	public void run() {
@@ -69,7 +62,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 		choice.deleteAll();
 		// TODO: нормальный поиск а не startsWith
 		search: {
-		if(type == 1) {
+		if(type == 1) { // поиск зоны
 			if(query.length() < 2) break search;
 			Enumeration e = MahoRaspApp.zones.keys();
 			while(e.hasMoreElements()) {
@@ -77,9 +70,10 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 				if(!z.toLowerCase().startsWith(query)) continue;
 				choice.append(z, null);
 			}
-		} else if(type == 2) {
+		} else if(type == 2) { // поиск города
 			Enumeration e = MahoRaspApp.zones.getTable().elements();
 			if(zone == 0) {
+				// глобальный
 				if(query.length() < 2) break search;
 				while(e.hasMoreElements()) {
 					JSONObject z = ((JSONObject) e.nextElement()).getObject("s");
@@ -91,6 +85,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 					}
 				}
 			} else {
+				// внутри одной зоны
 				JSONObject z = null;
 				while(e.hasMoreElements()) {
 					z = (JSONObject) e.nextElement();
@@ -105,11 +100,12 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 					choice.append(s, null);
 				}
 			}
-		} else if(type == 3) {
-			if(query.length() < 2) break search;
+		} else if(type == 3) { // поиск станции
+			if(query.length() < 2) break search; 
 			Enumeration e = stations.elements();
 			while(e.hasMoreElements()) {
 				JSONObject s = (JSONObject) e.nextElement();
+				// поиск в названии и направлении
 				if(!s.getString("d").toLowerCase().startsWith(query)
 						&& !s.getString("t").toLowerCase().startsWith(query)) continue;
 				choice.append(s.getString("t") + " - " + s.getString("d"), null);
@@ -117,6 +113,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 		}
 		}
 		searching = false;
+		// заменить функцию "отмена" на "готово"
 		if(choice.getSelectedIndex() != -1) {
 			if(!cancel) return;
 			removeCommand(cancelCmd);
@@ -136,6 +133,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 
 	public void commandAction(Command c, Displayable d) {
 		if(c == searchCmd) {
+			// не выполнять поиск если текущий поток поиска занят
 			if(thread != null && searching) return;
 			thread = new Thread(this);
 			thread.run();
@@ -147,12 +145,13 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 		}
 		if(c == doneCmd) {
 			int i = choice.getSelectedIndex();
-			if(i == -1) {
+			if(i == -1) { // если список пустой то отмена
 				MahoRaspApp.midlet.cancelChoice();
 				return;
 			}
 			String s = choice.getString(i);
 			if(type == 3) {
+				// выбрана станция
 				String esr = null;
 				Enumeration e = stations.elements();
 				while(e.hasMoreElements()) {
@@ -171,7 +170,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 	}
 
 	public void itemStateChanged(Item item) {
-		if(item == field) {
+		if(item == field) { // выполнять поиск при изменениях в поле ввода
 			commandAction(searchCmd, field);
 		}
 	}
