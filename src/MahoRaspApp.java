@@ -345,15 +345,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 						if(arrival.has("platform")) {
 							res += arrival.getString("platform") + "\n";
 						}
-						res += "\n" + time(departure.getString("time"));
+						res += time(departure.getString("time"));
 						res += " - ";
 						res += time(arrival.getString("time"));
-						res += " (" + seg.getString("duration") + " мин)";
+						res += " (" + seg.getString("duration") + " мин)\n";
 						res += thread.getString("title_short", thread.getString("title")) + "\n";
 						
 						JSONObject tariff = seg.getNullableObject("tariff");
-						if(tariff != null) res += "\n" + tariff.getString("value") + " " + tariff.getString("currency");
-						res += "\n";
+						if(tariff != null) res += tariff.getString("value") + " " + tariff.getString("currency") + "\n";
 
 						StringItem s = new StringItem(thread.getString("number"), res);
 						s.setFont(Font.getFont(0, 0, 8));
