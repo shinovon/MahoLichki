@@ -68,27 +68,26 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 		String query = field.getString().toLowerCase().trim();
 		choice.deleteAll();
 		// TODO: нормальный поиск а не startsWith
+		search: {
 		if(type == 1) {
-			if(query.length() < 2) return;
+			if(query.length() < 2) break search;
 			Enumeration e = MahoRaspApp.zones.keys();
 			while(e.hasMoreElements()) {
 				String z = (String) e.nextElement();
-				if(z.toLowerCase().startsWith(query)) {
-					choice.append(z, null);
-				}
+				if(!z.toLowerCase().startsWith(query)) continue;
+				choice.append(z, null);
 			}
 		} else if(type == 2) {
 			Enumeration e = MahoRaspApp.zones.getTable().elements();
 			if(zone == 0) {
-				if(query.length() < 2) return;
+				if(query.length() < 2) break search;
 				while(e.hasMoreElements()) {
 					JSONObject z = ((JSONObject) e.nextElement()).getObject("s");
 					Enumeration e2 = z.keys();
 					while(e2.hasMoreElements()) {
 						String s = (String) e2.nextElement();
-						if(s.toLowerCase().startsWith(query)) {
-							choice.append(s, null);
-						}
+						if(!s.toLowerCase().startsWith(query)) continue;
+						choice.append(s, null);
 					}
 				}
 			} else {
@@ -102,20 +101,20 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 				e = z.getObject("s").keys();
 				while(e.hasMoreElements()) {
 					String s = (String) e.nextElement();
-					if(s.toLowerCase().startsWith(query)) {
-						choice.append(s, null);
-					}
+					if(!s.toLowerCase().startsWith(query)) continue;
+					choice.append(s, null);
 				}
 			}
 		} else if(type == 3) {
-			if(query.length() < 2) return;
+			if(query.length() < 2) break search;
 			Enumeration e = stations.elements();
 			while(e.hasMoreElements()) {
 				JSONObject s = (JSONObject) e.nextElement();
-				if(s.getString("d").toLowerCase().startsWith(query) || s.getString("t").toLowerCase().startsWith(query)) {
-					choice.append(s.getString("t") + " - " + s.getString("d"), null);
-				}
+				if(!s.getString("d").toLowerCase().startsWith(query)
+						&& !s.getString("t").toLowerCase().startsWith(query)) continue;
+				choice.append(s.getString("t") + " - " + s.getString("d"), null);
 			}
+		}
 		}
 		searching = false;
 		if(choice.getSelectedIndex() != -1) {
