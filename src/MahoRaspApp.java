@@ -75,7 +75,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 	private String threadUid;
 	private String searchDate;
 	private boolean showGone;
-	private Hashtable uids;
+	private Hashtable uids = new Hashtable();
 
 	public MahoRaspApp() {
 		midlet = this;
@@ -264,7 +264,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			Form f = new Form("О программе");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
-			f.append("Махолички\nКлон Яндекс.Электричек от Махо Химемии\nРазработчик: shinovon\nНазвание придумал: sym_ansel");
+			//f.append("Махолички\n");
+			f.append(new StringItem("Махолички", "Разработчик: shinovon\nНазвание придумал: sym_ansel\nИдея: MuseCat77"));
 			display(f);
 		}
 		if(c == settingsCmd) {
@@ -466,7 +467,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		display(mainForm);
 	}
 
-	private void display(Displayable d) {
+	void display(Displayable d) {
 		if(d instanceof Alert) {
 			Display.getDisplay(this).setCurrent((Alert) d, mainForm);
 			return;

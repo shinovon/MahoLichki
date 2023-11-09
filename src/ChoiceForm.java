@@ -1,5 +1,6 @@
 import java.util.Enumeration;
 
+import javax.microedition.lcdui.Alert;
 import javax.microedition.lcdui.Choice;
 import javax.microedition.lcdui.ChoiceGroup;
 import javax.microedition.lcdui.Command;
@@ -58,6 +59,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 	
 	public void run() {
 		searching = true;
+		try {
 		String query = field.getString().toLowerCase().trim();
 		choice.deleteAll();
 		// TODO: нормальный поиск а не startsWith
@@ -125,6 +127,12 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 		removeCommand(doneCmd);
 		addCommand(cancelCmd);
 		cancel = true;
+		} catch (Throwable e) {
+			Alert a = new Alert("");
+			a.setString(e.toString());
+			MahoRaspApp.midlet.display(a);
+			e.printStackTrace();
+		}
 	}
 
 	public void commandAction(Command c, Item item) {
