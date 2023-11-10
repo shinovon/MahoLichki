@@ -115,7 +115,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 		}
 		}
 		searching = false;
-		// заменить функцию "отмена" на "готово"
+		// замена функции "отмена" на "готово"
 		if(choice.getSelectedIndex() != -1) {
 			if(!cancel) return;
 			removeCommand(cancelCmd);
