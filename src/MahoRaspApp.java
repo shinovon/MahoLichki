@@ -219,7 +219,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			Form f = new Form("О программе");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
-			f.append(new StringItem("Махолички", "Разработчик: shinovon\nНазвание придумал: sym_ansel\nИдея: MuseCat77"));
+			f.append(new StringItem("Махолички", "Разработчик: shinovon\nНазвание придумал: sym_ansel\nИдея: MuseCat77\n\n292 labs"));
 			display(f);
 		}
 		if(c == settingsCmd) {
@@ -712,7 +712,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		return j;
 	}
 	
-	private static String replaceOnce(String str, String hay, String ned) {
+	static String replaceOnce(String str, String hay, String ned) {
 		int idx = str.indexOf(hay);
 		if(idx != -1) {
 			str = str.substring(0, idx) + ned + str.substring(idx+hay.length());
