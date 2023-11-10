@@ -48,6 +48,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static final Command itemCmd = new Command("Остановки", Command.ITEM, 2);
 	private static final Command clearStationsCmd = new Command("Очистить станции", Command.ITEM, 2);
 	private static final Command clearScheduleCmd = new Command("Очистить расписания", Command.ITEM, 2);
+	private static final Command removeCmd = new Command("Удалить", Command.ITEM, 2);
 	
 	// Команды диалогов
 	protected static final Command okCmd = new Command("Ок", Command.OK, 1);
@@ -370,6 +371,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 			return;
 		}
+		if(c == removeCmd) { // удалить закладку
+			if(bookmarks == null) return;
+			int idx;
+			((List)d).delete(idx = ((List)d).getSelectedIndex());
+			bookmarks.remove(idx);
+			return;
+		}
 		if(c == List.SELECT_COMMAND) { // выбрана закладка
 			if(bookmarks == null) return;
 			JSONObject bm = bookmarks.getObject(((List)d).getSelectedIndex());
@@ -610,6 +618,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			List l = new List("Закладки", List.IMPLICIT);
 			l.addCommand(backCmd);
 			l.addCommand(List.SELECT_COMMAND);
+			l.addCommand(removeCmd);
 			l.setCommandListener(this);
 			try {
 				if(bookmarks == null) {
