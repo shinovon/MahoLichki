@@ -188,24 +188,23 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		// нажатие на куда / откуда
 		if(c == chooseCmd) {
 			choosing = i == fromBtn ? 1 : 2;
-			if(defaultChoiceType == 0) {
-				Alert a = new Alert("");
-				a.setString("Выбрать станцию или город?");
-				a.addCommand(new Command("Станция", Command.OK, 1));
-				a.addCommand(new Command("Город", Command.CANCEL, 2));
-				a.setCommandListener(this);
-				display(a);
-				return;
-			}
 			if(defaultChoiceType == 1) {
+				if(choosing == 1)
+					fromZoneId = 0;
+				else
+					toZoneId = 0;
+				display(new ChoiceForm(2, 0, null));
+			}
+			if(defaultChoiceType == 2) {
 				display(new ChoiceForm(1, choosing == 1 ? fromZoneId : toZoneId, null));
 				return;
 			}
-			if(choosing == 1)
-				fromZoneId = 0;
-			else
-				toZoneId = 0;
-			display(new ChoiceForm(2, 0, null));
+			Alert a = new Alert("");
+			a.setString("Выбрать станцию или город?");
+			a.addCommand(new Command("Станция", Command.OK, 1));
+			a.addCommand(new Command("Город", Command.CANCEL, 2));
+			a.setCommandListener(this);
+			display(a);
 			return;
 		}
 		// нажатие на элемент расписания
