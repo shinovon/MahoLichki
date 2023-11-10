@@ -28,7 +28,7 @@ import java.util.Vector;
  * JSON Library by nnproject.cc<br>
  * Usage:<p><code>JSONObject obj = JSON.getObject(str);</code>
  * @author Shinovon
- * @version 1.4
+ * @version 1.5
  */
 public final class JSON {
 

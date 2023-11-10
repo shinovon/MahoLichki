@@ -47,7 +47,7 @@ public class JSONObject extends AbstractJSON {
 				Object o = table.get(name);
 				if (o instanceof JSONString)
 					table.put(name, o = JSON.parseJSON(o.toString()));
-				else if (o == JSON.json_null)
+				if (JSON.isNull(o))
 					return null;
 				return o;
 			}
