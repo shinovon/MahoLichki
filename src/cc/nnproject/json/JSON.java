@@ -300,6 +300,7 @@ public final class JSON {
 	}
 
 	public static double getDouble(Object o) throws JSONException {
+		if(isNull(o)) throw new JSONException("Null to number cast");
 		try {
 			if (o instanceof Integer)
 				return ((Integer) o).intValue();
@@ -313,6 +314,7 @@ public final class JSON {
 	}
 
 	public static long getLong(Object o) throws JSONException {
+		if(isNull(o)) throw new JSONException("Null to number cast");
 		try {
 			if (o instanceof Integer)
 				return ((Integer) o).longValue();

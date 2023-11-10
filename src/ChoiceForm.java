@@ -158,8 +158,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 				return;
 			}
 			String s = choice.getString(i);
-			if(type == 3) {
-				// выбрана станция
+			if(type == 3) { // выбрана станция
 				String esr = null;
 				Enumeration e = stations.elements();
 				while(e.hasMoreElements()) {
@@ -172,6 +171,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 				MahoRaspApp.midlet.select(type, esr, s);
 				return;
 			}
+			// зона или город
 			MahoRaspApp.midlet.select(type, s, null);
 			return;
 		}

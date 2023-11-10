@@ -20,7 +20,6 @@ import javax.microedition.lcdui.Form;
 import javax.microedition.lcdui.Gauge;
 import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
-import javax.microedition.lcdui.ItemStateListener;
 import javax.microedition.lcdui.StringItem;
 import javax.microedition.midlet.MIDlet;
 import javax.microedition.rms.RecordStore;
@@ -29,18 +28,23 @@ import cc.nnproject.json.JSON;
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
 
-public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateListener, ItemCommandListener, Runnable {
-
+public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandListener, Runnable {
+	
+	// Функции главной формы
 	private static final Command exitCmd = new Command("Выход", Command.EXIT, 1);
-	private static final Command submitCmd = new Command("Искать", Command.ITEM, 2);
-	private static final Command chooseCmd = new Command("Выбрать", Command.ITEM, 2);
-	private static final Command itemCmd = new Command("Остановки", Command.ITEM, 2);
-	protected static final Command okCmd = new Command("Ок", Command.OK, 1);
-	private static final Command backCmd = new Command("Назад", Command.BACK, 1);
 	private static final Command showGoneCmd = new Command("Показать ушедшие", Command.SCREEN, 3);
 	private static final Command hideGoneCmd = new Command("Скрыть ушедшие", Command.SCREEN, 3);
 	private static final Command settingsCmd = new Command("Настройки", Command.SCREEN, 4);
 	private static final Command aboutCmd = new Command("О программе", Command.SCREEN, 5);
+
+	// Функции элементов
+	private static final Command submitCmd = new Command("Искать", Command.ITEM, 2);
+	private static final Command chooseCmd = new Command("Выбрать", Command.ITEM, 2);
+	private static final Command itemCmd = new Command("Остановки", Command.ITEM, 2);
+	
+	// Команды диалогов
+	protected static final Command okCmd = new Command("Ок", Command.OK, 1);
+	private static final Command backCmd = new Command("Назад", Command.BACK, 1);
 	
 	private boolean started;
 	
@@ -50,6 +54,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 	
 	private Form mainForm;
 	private Form loadingForm;
+	private Form settingsForm;
 	
 	private DateField dateField;
 	private StringItem submitBtn;
@@ -75,10 +80,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 	private String threadUid;
 	private String searchDate;
 	private boolean showGone;
-	private Hashtable uids = new Hashtable();
+	private Hashtable uids;
 
+	/// UI
+	
 	public MahoRaspApp() {
 		midlet = this;
+		uids = new Hashtable();
 		loadingForm = new Form("Загрузка");
 		loadingForm.append("Парс зон");
 		mainForm = new Form("Махолички");
@@ -110,7 +118,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		text.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_BEFORE);
 		mainForm.append(text);
 		mainForm.setCommandListener(this);
-		mainForm.setItemStateListener(this);
 	}
 
 	protected void destroyApp(boolean arg0) {
@@ -164,57 +171,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		this.commandAction(c, mainForm);
 	}
 
-	// при type=1, 2: s - название зоны / города, s2 - не используется
-	// при type=3: s - esr код станции, s2 - название
-	public void select(int type, String s, String s2) {
-		if(type == 1) { // выбрана зона
-			int id = zones.getObject(s).getInt("i");
-			if(choosing == 1) {
-				fromZoneName = s;
-				fromZoneId = id;
-			} else {
-				toZoneName = s;
-				toZoneId = id;
-			}
-			// проверка на наличие станций зоны в памяти
-			try {
-				RecordStore rs = RecordStore.openRecordStore("mahoRS_"+id, false);
-				JSONArray r = JSON.getArray(new String(rs.getRecord(1), "UTF-8"));
-				display(new ChoiceForm(3, id, r));
-				rs.closeRecordStore();
-			} catch (Exception e) {
-				downloadZone = id;
-				Alert a = new Alert("");
-				a.setString("Станции зоны \"" + s + "\" не найдены в кэше. Загрузить?");
-				a.addCommand(new Command("Загрузить", Command.OK, 4));
-				a.addCommand(new Command("Выбрать город", Command.CANCEL, 3));
-				a.setCommandListener(this);
-				display(a);
-			}
-			return;
-		}
-		if(type == 2) { // выбран город
-			if(choosing == 1) {
-				fromBtn.setText(fromSettlement = s);
-			} else {
-				toBtn.setText(toSettlement = s);
-			}
-			display(mainForm);
-			return;
-		}
-		if(type == 3) { // выбрана станция
-			if(choosing == 1) {
-				fromStation = s;
-				fromBtn.setText(s2);
-			} else {
-				toStation = s;
-				toBtn.setText(s2);
-			}
-			display(mainForm);
-			return;
-		}
-	}
-
 	public void commandAction(Command c, Displayable d) {
 		if(c == exitCmd) {
 			notifyDestroyed();
@@ -260,20 +216,18 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			return;
 		}
 		if(c == aboutCmd) {
-			// TODO
 			Form f = new Form("О программе");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
-			//f.append("Махолички\n");
 			f.append(new StringItem("Махолички", "Разработчик: shinovon\nНазвание придумал: sym_ansel\nИдея: MuseCat77"));
 			display(f);
 		}
 		if(c == settingsCmd) {
-			// TODO
-			Form f = new Form("Настройки");
-			f.addCommand(backCmd);
-			f.setCommandListener(this);
-			display(f);
+			// TODO: очистка станций, выбор станции/города по умолчанию
+			settingsForm = new Form("Настройки");
+			settingsForm.addCommand(backCmd);
+			settingsForm.setCommandListener(this);
+			display(settingsForm);
 		}
 		if(c == Alert.DISMISS_COMMAND) { // игнорировать дефолтное ОК
 			return;
@@ -307,6 +261,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			}
 		}
 	}
+	
+	/// Бэкенд
 	
 	public void run() {
 		running = true;
@@ -482,7 +438,58 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		run = 0;
 	}
 	
-	public void cancelChoice() {
+	// при type=1, 2: s - название зоны / города, s2 - не используется
+	// при type=3: s - esr код станции, s2 - название
+	void select(int type, String s, String s2) {
+		if(type == 1) { // выбрана зона
+			int id = zones.getObject(s).getInt("i");
+			if(choosing == 1) {
+				fromZoneName = s;
+				fromZoneId = id;
+			} else {
+				toZoneName = s;
+				toZoneId = id;
+			}
+			// проверка на наличие станций зоны в памяти
+			try {
+				RecordStore rs = RecordStore.openRecordStore("mahoRS_"+id, false);
+				JSONArray r = JSON.getArray(new String(rs.getRecord(1), "UTF-8"));
+				display(new ChoiceForm(3, id, r));
+				rs.closeRecordStore();
+			} catch (Exception e) {
+				downloadZone = id;
+				Alert a = new Alert("");
+				a.setString("Станции зоны \"" + s + "\" не найдены в кэше. Загрузить?");
+				a.addCommand(new Command("Загрузить", Command.OK, 4));
+				a.addCommand(new Command("Выбрать город", Command.CANCEL, 3));
+				a.setCommandListener(this);
+				display(a);
+			}
+			return;
+		}
+		if(type == 2) { // выбран город
+			if(choosing == 1) {
+				fromBtn.setText(fromSettlement = s);
+			} else {
+				toBtn.setText(toSettlement = s);
+			}
+			display(mainForm);
+			return;
+		}
+		if(type == 3) { // выбрана станция
+			if(choosing == 1) {
+				fromStation = s;
+				fromBtn.setText(s2);
+			} else {
+				toStation = s;
+				toBtn.setText(s2);
+			}
+			display(mainForm);
+			return;
+		}
+	}
+
+	void cancelChoice() {
 		// выбор отменен
 		if(choosing == 1) {
 			fromZoneName = null;
@@ -495,6 +502,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		}
 		display(mainForm);
 	}
+	
+	/// Утилки
 
 	void display(Displayable d) {
 		if(d instanceof Alert) {
@@ -503,11 +512,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		}
 		Display.getDisplay(this).setCurrent(d);
 	}
-
-	public void itemStateChanged(Item item) {
-	}
 	
-	public static byte[] readBytes(InputStream is) throws IOException {
+	static byte[] readBytes(InputStream is) throws IOException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		final byte[] buf = new byte[128];
 		int read;
@@ -520,17 +526,17 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		return b;
 	}
 	
-	private static String n(int n) {
+	static String n(int n) {
 		if(n < 10) {
 			return "0".concat(i(n));
 		} else return i(n);
 	}
 	
-	private static String i(int n) {
+	static String i(int n) {
 		return Integer.toString(n);
 	}
 	
-	public static Calendar parseDate(String date) {
+	static Calendar parseDate(String date) {
 		Calendar c = Calendar.getInstance();
 		if(date.indexOf('T') != -1) {
 			String[] dateSplit = split(date.substring(0, date.indexOf('T')), '-');
@@ -540,17 +546,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			if(i == -1) {
 				i = second.indexOf('-');
 			}
-			//try {
-				if(i != -1) {
-					//String timezone = second.substring(i+1);
-					second = second.substring(0, i);
-					//if(timezone.startsWith("3")) {
-					//	c.setTimeZone(TimeZone.getTimeZone("Europe/Moscow"));
-					//}
-				}
-			//} catch (Exception e) {
-			//	e.printStackTrace();
-			//}
+			if(i != -1) {
+				second = second.substring(0, i);
+			}
 			c.set(Calendar.YEAR, Integer.parseInt(dateSplit[0]));
 			c.set(Calendar.MONTH, Integer.parseInt(dateSplit[1])-1);
 			c.set(Calendar.DAY_OF_MONTH, Integer.parseInt(dateSplit[2]));
@@ -566,18 +564,18 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		return c;
 	}
 
-	public static String time(String date) {
+	static String time(String date) {
 		if(date == null) return "";
 		Calendar c = parseDate(date);
 		//return c.get(Calendar.DAY_OF_MONTH) + " " + localizeMonthWithCase(c.get(Calendar.MONTH)) + " " +
 		return n(c.get(Calendar.HOUR_OF_DAY)) + ":" + n(c.get(Calendar.MINUTE));
 	}
 	
-	public static long timestamp(String date) {
+	static long timestamp(String date) {
 		return parseDate(date).getTime().getTime();
 	}
 	
-	public static boolean oneDay(Calendar a, Calendar b) {
+	static boolean oneDay(Calendar a, Calendar b) {
 		return a.get(Calendar.DAY_OF_MONTH) == b.get(Calendar.DAY_OF_MONTH) &&
 				a.get(Calendar.MONTH) == b.get(Calendar.MONTH) &&
 				a.get(Calendar.YEAR) == b.get(Calendar.YEAR);
@@ -614,7 +612,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		}
 	}
 	
-	public static String[] split(String str, char d) {
+	static String[] split(String str, char d) {
 		int i = str.indexOf(d);
 		if(i == -1)
 			return new String[] {str};
@@ -632,7 +630,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		return r;
 	}
 	
-	public static String url(String url) {
+	static String url(String url) {
 		StringBuffer sb = new StringBuffer();
 		char[] chars = url.toCharArray();
 		for (int i = 0; i < chars.length; i++) {
@@ -667,7 +665,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		return "%".concat(s.length() < 2 ? "0" : "").concat(s);
 	}
 	
-	public static byte[] get(String url) throws IOException {
+	static byte[] get(String url) throws IOException {
 		ByteArrayOutputStream o = null;
 		HttpConnection hc = null;
 		InputStream in = null;
@@ -700,11 +698,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 		}
 	}
 	
-	public static String getUtf(String url) throws IOException {
+	static String getUtf(String url) throws IOException {
 		return new String(get(url), "UTF-8");
 	}
 	
-	public static JSONObject api(String url) throws Exception {
+	static JSONObject api(String url) throws Exception {
 		String r = getUtf("http://export.rasp.yandex.net/v3/suburban/" + url);
 		JSONObject j = JSON.getObject(r);
 		if(j.has("error")) {
