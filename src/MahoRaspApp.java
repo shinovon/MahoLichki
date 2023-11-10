@@ -264,11 +264,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		if(c == submitCmd) {
 			if(running) return;
 			if(fromSettlement == null && fromStation == null) {
-				text.setText("не выбран пункт отправки");
+				text.setText("Не выбрана точка А");
 				return;
 			}
 			if(toSettlement == null && toStation == null) {
-				text.setText("не выбран пункт назначения");
+				text.setText("Не выбрана точка Б");
 				return;
 			}
 			mainForm.addCommand(addBookmarkCmd);
@@ -715,7 +715,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						JSONObject arrival = seg.getObject("arrival");
 						
 						sr.put("u", thread.getString("uid"));
-						sr.put("t", time(departure.getString("time")) + " - " + time(arrival.getString("time")) + " (" + seg.getString("duration") + " мин)\n");
+						sr.put("t", time(departure.getString("time")) + " - " + time(arrival.getString("time")) + " (" + seg.getString("duration") + " мин)");
 						
 						String res = "";
 						if(departure.has("platform")) {
