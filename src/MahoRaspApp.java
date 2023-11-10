@@ -373,7 +373,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 				Calendar server_time = parseDate(j.getObject("date_time").getString("server_time"));
 
 				text.setLabel("");
-				text.setText("Результаты");
+				text.setText("Результаты\n");
 				
 				int count = 0;
 				// парс маршрутов
@@ -398,20 +398,49 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 							res += departure.getString("platform") + "\n";
 						}
 						
-						// TODO: опоздание
 						// время отправления - время прибытия (длина)
 						// показывается местное время
-						res += time(departure.getString("time")) + " - " + time(arrival.getString("time")) + " (" + seg.getString("duration") + " мин)\n";
+						String time = time(departure.getString("time")) + " - " + time(arrival.getString("time")) + " (" + seg.getString("duration") + " мин)\n";
 						
 						// название
 						res += thread.getString("title_short", thread.getString("title")) + "\n";
 						
 						// тариф
 						JSONObject tariff = seg.getNullableObject("tariff");
-						if(tariff != null) res += tariff.getString("value") + " " + tariff.getString("currency") + "\n";
+						if(tariff != null) res += replaceOnce(tariff.getString("value"), ".0", "") + " " + tariff.getString("currency") + "\n";
 						
+						// опоздание
+						if(departure.has("state")) {
+							JSONObject state = departure.getObject("state");
+							int minutes_from = state.getInt("minutes_from", -1);
+							int minutes_to = state.getInt("minutes_to", -1);
+							if(minutes_from >= 0 && minutes_to >= 0) {
+								if(c.before(server_time)) { // ушел
+									if(minutes_from == 0) {
+										res += "Ушёл по расписанию";
+									} else {
+										res += "Ушёл позже на " + minutes_from + " мин.";
+									}
+								} else if(minutes_from > 0 || minutes_to > 0) {
+									res += "Возможно опоздание ";
+									if(minutes_from == minutes_to) {
+										res += "на " + minutes_from + " мин.";
+									} else {
+										res += "от " + minutes_from + " до " + minutes_to + " мин.";
+									}
+								}
+								res += "\n";
+							} else if(state.has("type") && "possible_delay".equals(state.getString("type"))) {
+								res += "Возможно опоздание\n";
+							}
+						}
+						
+						// транспорт
+						if(thread.has("transport") && thread.getObject("transport").has("subtype")) {
+							res += thread.getObject("transport").getObject("subtype").getString("title") + "\n";
+						}
 
-						StringItem s = new StringItem("", res);
+						StringItem s = new StringItem(time, res);
 						s.setFont(Font.getFont(0, 0, 8));
 //						s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_BEFORE);
 						s.addCommand(itemCmd);
@@ -440,7 +469,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 				f.append(j.getString("title") + "\nОстановки: " + j.getString("stops") + "\n");
 				for(Enumeration e = j.getArray("stations").elements(); e.hasMoreElements();) {
 					JSONObject station = (JSONObject) e.nextElement();
-					StringItem s = new StringItem("", station.getString("title") + " " + time(station.getString("departure_local"))+"\n");
+					StringItem s = new StringItem("", station.getString("title") + " " + time(station.getNullableString("departure_local"))+"\n");
 					s.setFont(Font.getFont(0, 0, 8));
 					f.append(s);
 				}
@@ -538,6 +567,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 	}
 
 	public static String time(String date) {
+		if(date == null) return "";
 		Calendar c = parseDate(date);
 		//return c.get(Calendar.DAY_OF_MONTH) + " " + localizeMonthWithCase(c.get(Calendar.MONTH)) + " " +
 		return n(c.get(Calendar.HOUR_OF_DAY)) + ":" + n(c.get(Calendar.MINUTE));
@@ -682,6 +712,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemStateLis
 			throw new Exception(j.getObject("error").getString("text"));
 		}
 		return j;
+	}
+	
+	private static String replaceOnce(String str, String hay, String ned) {
+		int idx = str.indexOf(hay);
+		if(idx != -1) {
+			str = str.substring(0, idx) + ned + str.substring(idx+hay.length());
+		}
+		return str;
 	}
 
 }

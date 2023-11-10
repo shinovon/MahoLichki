@@ -198,7 +198,7 @@ public class JSONObject extends AbstractJSON {
 	}
 	
 	public boolean isNull(String name) {
-		return JSON.isNull(getNullable(name));
+		return JSON.isNull(get(name));
 	}
 
 	public void put(String name, String s) {

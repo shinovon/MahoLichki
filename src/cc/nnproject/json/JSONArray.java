@@ -179,7 +179,7 @@ public class JSONArray extends AbstractJSON {
 	}
 	
 	public boolean isNull(int index) {
-		return JSON.isNull(getNullable(index));
+		return JSON.isNull(get(index));
 	}
 	
 	public void add(String s) {
