@@ -122,7 +122,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		mainForm = new Form("Махолички");
 		mainForm.addCommand(exitCmd);
 		mainForm.addCommand(showGone ? hideGoneCmd : showGoneCmd);
-		mainForm.addCommand(addBookmarkCmd);
 		mainForm.addCommand(bookmarksCmd);
 		mainForm.addCommand(settingsCmd);
 		mainForm.addCommand(aboutCmd);
@@ -268,6 +267,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				text.setText("не выбран пункт назначения");
 				return;
 			}
+			mainForm.addCommand(addBookmarkCmd);
 			mainForm.deleteAll();
 			mainForm.append(dateField);
 			mainForm.append(fromBtn);
@@ -381,6 +381,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			toStation = bm.getString("ts", null);
 			toBtn.setText(bm.getString("tn"));
 			if(toStation == null) toSettlement = bm.getString("tn");
+			display(mainForm);
 			commandAction(submitCmd, d);
 			return;
 		}
@@ -475,9 +476,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				text.setText("Загрузка");
 				
 				resultRecordName = SCHEDULE_RECORDPREFIX + searchDate + (fromStation != null ? ("s" + fromStation) : ("c" + city_from)) + (toStation != null ? ("s" + toStation) : ("c" + city_to));
-
-				mainForm.append(resultRecordName);
-				
 				
 				String params = (fromStation != null ? ("station_from=" + fromStation) : ("city_from=" + city_from)) + "&" + (toStation != null ? ("station_to=" + toStation) : ("city_to=" + city_to));
 				JSONObject j = api("search_on_date?date=" + searchDate + "&" + params);
