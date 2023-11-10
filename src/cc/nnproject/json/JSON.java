@@ -60,16 +60,17 @@ public final class JSON {
 		return (JSONArray) parseJSON(string);
 	}
 
-	static Object getJSON(Object obj) throws JSONException {
+	static Object getJSON(Object obj) {
 		if (obj instanceof Hashtable) {
 			return new JSONObject((Hashtable) obj);
-		} else if (obj instanceof Vector) {
-			return new JSONArray((Vector) obj);
-		} else if (obj == null) {
-			return json_null;
-		} else {
-			return obj;
 		}
+		if (obj instanceof Vector) {
+			return new JSONArray((Vector) obj);
+		}
+		if (obj == null) {
+			return json_null;
+		}
+		return obj;
 	}
 
 	static Object parseJSON(String str) throws JSONException {

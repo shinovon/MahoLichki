@@ -10,6 +10,7 @@ import javax.microedition.lcdui.Form;
 import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
 import javax.microedition.lcdui.ItemStateListener;
+import javax.microedition.lcdui.StringItem;
 import javax.microedition.lcdui.TextField;
 
 import cc.nnproject.json.JSONArray;
@@ -19,8 +20,8 @@ import cc.nnproject.json.JSONObject;
 public class ChoiceForm extends Form implements CommandListener, ItemCommandListener, ItemStateListener, Runnable {
 	
 	private static final Command searchCmd = new Command("Поиск", Command.ITEM, 2);
-	private static final Command doneCmd = new Command("Готово", Command.EXIT, 1);
-	private static final Command cancelCmd = new Command("Отмена", Command.EXIT, 1);
+	private static final Command doneCmd = new Command("Готово", Command.OK, 1);
+	private static final Command cancelCmd = new Command("Отмена", Command.CANCEL, 1);
 
 	private int type; // 1 - зона, 2 - город, 3 - станция
 	private int zone;
@@ -37,16 +38,17 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 		this.zone = zone;
 		this.stations = stations;
 		field = new TextField("Поиск", "", 100, TextField.ANY);
-		field.addCommand(searchCmd);
-		field.setDefaultCommand(searchCmd);
+//		field.addCommand(searchCmd);
+//		field.setDefaultCommand(searchCmd);
 		field.setItemCommandListener(this);
 		append(field);
-		// TODO: ж2ме лоадер
-//		StringItem btn = new StringItem("", "Поиск", StringItem.BUTTON);
-//		btn.addCommand(searchCmd);
-//		btn.setDefaultCommand(searchCmd);
-//		btn.setItemCommandListener(this);
-//		append(btn);
+		if(MahoRaspApp.isJ2MEL()) {
+			StringItem btn = new StringItem("", "Поиск", StringItem.BUTTON);
+			btn.addCommand(searchCmd);
+			btn.setDefaultCommand(searchCmd);
+			btn.setItemCommandListener(this);
+			append(btn);
+		}
 		choice = new ChoiceGroup("", Choice.EXCLUSIVE);
 //		choice.addCommand(doneCmd);
 //		choice.setDefaultCommand(doneCmd);
