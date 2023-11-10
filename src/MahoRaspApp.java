@@ -486,7 +486,22 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				resultRecordName = SCHEDULE_RECORDPREFIX + searchDate + (fromStation != null ? ("s" + fromStation) : ("c" + city_from)) + (toStation != null ? ("s" + toStation) : ("c" + city_to));
 				
 				String params = (fromStation != null ? ("station_from=" + fromStation) : ("city_from=" + city_from)) + "&" + (toStation != null ? ("station_to=" + toStation) : ("city_to=" + city_to));
-				JSONObject j = api("search_on_date?date=" + searchDate + "&" + params);
+				JSONObject j;
+				try {
+					j = api("search_on_date?date=" + searchDate + "&" + params);
+				} catch (IOException e) {
+					// попробовать загрузить кэшированное расписание
+					try {
+						RecordStore r = RecordStore.openRecordStore(resultRecordName, false);
+						// TODO
+						r.closeRecordStore();
+					} catch (Exception e2) {
+						e2.printStackTrace();
+						text.setLabel("Результаты");
+						text.setText("Нет сети!\n" + e.toString());
+					}
+					return;
+				}
 				// время сервера в UTC
 				Calendar server_time = parseDate(j.getObject("date_time").getString("server_time"));
 
