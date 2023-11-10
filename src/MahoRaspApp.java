@@ -194,6 +194,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				else
 					toZoneId = 0;
 				display(new ChoiceForm(2, 0, null));
+				return;
 			}
 			if(defaultChoiceType == 2) {
 				display(new ChoiceForm(1, choosing == 1 ? fromZoneId : toZoneId, null));
