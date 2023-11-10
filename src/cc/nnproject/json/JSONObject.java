@@ -202,7 +202,7 @@ public class JSONObject extends AbstractJSON {
 	}
 
 	public void put(String name, String s) {
-		table.put(name, s);
+		table.put(name, JSON.getJSON(s)); // replace null to json_null
 	}
 
 	public void put(String name, boolean b) {
