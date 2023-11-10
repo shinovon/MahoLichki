@@ -614,12 +614,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			l.addCommand(List.SELECT_COMMAND);
 			l.setCommandListener(this);
 			try {
-				RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
-				bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
-				r.closeRecordStore();
+				if(bookmarks == null) {
+					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
+					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
+					r.closeRecordStore();
+				}
 				for(Enumeration e = bookmarks.elements(); e.hasMoreElements();) {
 					JSONObject bm = (JSONObject) e.nextElement();
-					l.append(bm.getString("fn") + " " + bm.getString("tn"), null);
+					l.append(bm.getString("fn") + " - " + bm.getString("tn"), null);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
