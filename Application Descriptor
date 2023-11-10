@@ -2,6 +2,7 @@ MIDlet-Vendor: nnproject
 MIDlet-Version: 1.0.0
 MIDlet-Icon: /icon.png
 MicroEdition-Configuration: CLDC-1.1
+Nokia-MIDlet-UID-1: 0xA29BAC0A
 MIDlet-1: MahoLichki,/icon.png,MahoRaspApp
 MIDlet-Name: MahoLichki
 MicroEdition-Profile: MIDP-2.0
