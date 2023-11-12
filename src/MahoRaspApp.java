@@ -184,6 +184,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		}
 		display(mainForm);
 		loadingForm = null;
+		if(isJ2MEL()) {
+			// https://github.com/nikita36078/J2ME-Loader/issues/1024
+			Alert a = new Alert("Внимание");
+			a.setString("J2ME Loader поддерживается только с фиксом #1026\nЕсли 1.8.0 уже вышла и у вас стоит она, то игнорируйте это сообщение.");
+			a.setTimeout(5000);
+			display(a);
+		}
 	}
 	
 	public void commandAction(Command c, Item i) {

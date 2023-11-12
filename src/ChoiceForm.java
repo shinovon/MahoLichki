@@ -42,13 +42,6 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 //		field.setDefaultCommand(searchCmd);
 		field.setItemCommandListener(this);
 		append(field);
-		if(MahoRaspApp.isJ2MEL()) {
-			StringItem btn = new StringItem("", "Поиск", StringItem.BUTTON);
-			btn.addCommand(searchCmd);
-			btn.setDefaultCommand(searchCmd);
-			btn.setItemCommandListener(this);
-			append(btn);
-		}
 		choice = new ChoiceGroup("", Choice.EXCLUSIVE);
 //		choice.addCommand(doneCmd);
 //		choice.setDefaultCommand(doneCmd);
