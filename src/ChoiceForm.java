@@ -73,8 +73,7 @@ public class ChoiceForm extends Form implements CommandListener, ItemCommandList
 				// глобальный
 				if(query.length() < 2) break search;
 				while(e.hasMoreElements()) {
-					JSONObject z = ((JSONObject) e.nextElement()).getObject("s");
-					Enumeration e2 = z.keys();
+					Enumeration e2 = ((JSONObject) e.nextElement()).getObject("s").keys();
 					while(e2.hasMoreElements()) {
 						String s = (String) e2.nextElement();
 						if(!s.toLowerCase().startsWith(query)) continue;

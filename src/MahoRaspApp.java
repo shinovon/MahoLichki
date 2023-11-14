@@ -575,7 +575,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						
 						// время отправления - время прибытия (длина)
 						// показывается местное время
-						String time = time(departure.getString("time")) + " - " + time(arrival.getString("time")) + " (" + seg.getString("duration") + " мин)\n";
+						String time = time(departure.getString("time")) + " - " + time(arrival.getString("time")) + " (" + duration(seg.getInt("duration")) + ")\n";
 						
 						// название
 						res += thread.getString("title_short", thread.getString("title")) + "\n";
@@ -774,7 +774,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		running = false;
 		run = 0;
 	}
-	
+
 	private void run(int run) {
 		this.run = run;
 		new Thread(this).start();
@@ -854,6 +854,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		}
 		Display.getDisplay(this).setCurrent(d);
 	}
+
+	private Alert loadingAlert(String text) {
+		Alert a = new Alert("");
+		a.setString(text);
+		a.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
+		a.setTimeout(5000);
+		return a;
+	}
 	
 	static byte[] readBytes(InputStream is) throws IOException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -878,6 +886,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		return Integer.toString(n);
 	}
 	
+	// парсер даты ISO 8601 без учета часового пояса
 	static Calendar parseDate(String date) {
 		Calendar c = Calendar.getInstance();
 		if(date.indexOf('T') != -1) {
@@ -952,6 +961,17 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		default:
 			return "";
 		}
+	}
+	
+	static String duration(int minutes) {
+		if(minutes > 24 * 60) {
+			int hours = minutes / 60;
+			return (hours / 24) + "д " + (hours % 24) + " ч";
+		}
+		if(minutes > 60) {
+			return (minutes / 60) + " ч " + (minutes % 60) + " мин";
+		}
+		return minutes + " мин";
 	}
 	
 	static String[] split(String str, char d) {
@@ -1060,14 +1080,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			str = str.substring(0, idx) + ned + str.substring(idx+hay.length());
 		}
 		return str;
-	}
-
-	private Alert loadingAlert(String text) {
-		Alert a = new Alert("");
-		a.setString(text);
-		a.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
-		a.setTimeout(5000);
-		return a;
 	}
 	
 	static boolean isJ2MEL() {
