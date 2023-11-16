@@ -558,7 +558,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private Form searchForm(int type, int zone, JSONArray stations) {
 		String zoneName = null;
 		int i = 0;
-		if(zone != 0) while(zonesAndCities[i][0] != zone && (i+=1) < zoneNames.length);
+		if(zone != 0) while(zonesAndCities[i][0] != zone && ++i < zoneNames.length);
 		searchForm = new Form((type == 1 ? "Выбор зоны" : type == 2 ? "Выбор города" : "Выбор станции") + (zoneName != null ? " (" + zoneName + ")" : ""));
 		searchCancel = true;
 		searchType = type;
@@ -939,7 +939,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						// внутри одной зоны
 						int i = 0;
 						int[] c;
-						while((c = zonesAndCities[i])[0] != searchZone && (i+=1) < zonesAndCities.length);
+						while((c = zonesAndCities[i])[0] != searchZone && ++i < zonesAndCities.length);
 						i = 0;
 						while(i < c.length) {
 							String s = cityNames[c[i++]];
@@ -997,7 +997,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		searchStations = null;
 		if(type == 1) { // выбрана зона
 			int id = 0;
-			while(!s.equals(zoneNames[id]) && (id+=1) < zoneNames.length);
+			while(!s.equals(zoneNames[id]) && ++id < zoneNames.length);
 			id = zonesAndCities[id][0];
 			if(choosing == 1) {
 				fromZone = id;
@@ -1069,13 +1069,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private int getCity(int zone, String name) {
 		int r = 0;
 		if(zone == 0) {
-			while(!name.equals(cityNames[r]) && (r+=1) < cityNames.length);
+			while(!name.equals(cityNames[r]) && ++r < cityNames.length);
 		} else {
 			int i = 0;
 			int[] z;
-			while((z = zonesAndCities[i])[0] != zone && (i+=1) < zonesAndCities.length);
+			while((z = zonesAndCities[i])[0] != zone && ++i < zonesAndCities.length);
 			i = 0;
-			while(!name.equals((cityNames[r = z[i]])) && (i+=1) < z.length);
+			while(!name.equals((cityNames[r = z[i]])) && ++i < z.length);
 		}
 		return r == cityNames.length ? 0 : cityIds[r];
 	}
