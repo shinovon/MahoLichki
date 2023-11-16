@@ -701,6 +701,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				text.setText("Результаты\n");
 				
 				int count = 0;
+				int count2 = 0;
 				// парс маршрутов
 				for(Enumeration e2 = j.getArray("days").elements(); e2.hasMoreElements();) { // дни
 					JSONObject day = (JSONObject) e2.nextElement();
@@ -713,6 +714,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						Calendar c = parseDate(departure.getString("time_utc"));
 						// пропускать ушедшие сегодня
 						if(!showGone && oneDay(c, server_time) && c.before(server_time)) continue;
+						count2++;
 						
 						JSONObject thread = seg.getObject("thread");
 						JSONObject arrival = seg.getObject("arrival");
@@ -778,6 +780,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				if(count == 0) {
 					text.setLabel("Результаты");
 					text.setText("Пусто");
+				} else if(count2 == 0) {
+					text.setLabel("Результаты");
+					text.setText("Все электрички уехали");
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
