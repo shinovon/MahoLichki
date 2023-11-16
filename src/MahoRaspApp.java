@@ -731,7 +731,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						
 						// транспорт
 						if(thread.has("transport") && thread.getObject("transport").has("subtype")) {
-							res += thread.getObject("transport").getObject("subtype").getString("title") + "\n";
+							res += replaceOnce(thread.getObject("transport").getObject("subtype").getString("title"),"<br/>","\n") + "\n";
 						}
 
 						StringItem s = new StringItem(time, res);
