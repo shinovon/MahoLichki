@@ -64,11 +64,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static final Command doneCmd = new Command("Готово", Command.OK, 1);
 	private static final Command cancelCmd = new Command("Отмена", Command.CANCEL, 1);
 	
-	// Список настроек типа on/off
-	private static final String[] SETTINGS = new String[] {
-			// TODO
-	};
-	
 	// Константы названий RecordStore
 	private static final String SETTINGS_RECORDNAME = "mahoLsets";
 	private static final String STATIONS_RECORDPREFIX = "mahoLS_";
@@ -101,7 +96,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 
 	// UI настроек
 	private ChoiceGroup settingsDefaultTypeChoice;
-	private ChoiceGroup settingsMultipleChoice;
 	
 	// точка А
 	private int fromZone;
@@ -355,8 +349,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			settingsDefaultTypeChoice = new ChoiceGroup("Выбор пункта по умолчанию", Choice.POPUP, new String[] { "Спрашивать", "Город", "Станция" }, null);
 			settingsDefaultTypeChoice.setSelectedIndex(defaultChoiceType, true);
 			settingsForm.append(settingsDefaultTypeChoice);
-			settingsMultipleChoice = new ChoiceGroup("", Choice.MULTIPLE, SETTINGS, null);
-			settingsForm.append(settingsMultipleChoice);
 			StringItem clearStationsBtn = new StringItem("", "Очистить станции", StringItem.BUTTON);
 			clearStationsBtn.addCommand(clearStationsCmd);
 			clearStationsBtn.setDefaultCommand(clearStationsCmd);
@@ -830,7 +822,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			List l = new List("Закладки", List.IMPLICIT);
 			l.addCommand(backCmd);
 			l.addCommand(List.SELECT_COMMAND);
-			l.addCommand(removeCmd);
 			l.setCommandListener(this);
 			try {
 				if(bookmarks == null) {
@@ -839,6 +830,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					bookmarks.parseTree();
 					r.closeRecordStore();
 				}
+				l.addCommand(removeCmd);
 				for(Enumeration e = bookmarks.elements(); e.hasMoreElements();) {
 					JSONObject bm = (JSONObject) e.nextElement();
 					l.append(bm.getString("fn") + " - " + bm.getString("tn"), null);
