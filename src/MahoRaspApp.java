@@ -342,7 +342,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			Form f = new Form("О программе");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
-			f.append(new StringItem("Махолички", "Разработчик: shinovon\nНазвание придумал: sym_ansel\nПредложил: MuseCat77\n\n292 labs"));
+			f.append(new StringItem("Махолички v" + this.getAppProperty("MIDlet-Version"), "Разработчик: shinovon\nНазвание придумал: sym_ansel\nПредложил: MuseCat77\n\n292 labs"));
 			display(f);
 			return;
 		}
