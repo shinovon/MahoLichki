@@ -43,8 +43,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static final Command bookmarksCmd = new Command("Закладки", Command.SCREEN, 4);
 	private static final Command addBookmarkCmd = new Command("Добавить в закладки", Command.SCREEN, 5);
 	private static final Command cacheScheduleCmd = new Command("Сохранить", Command.SCREEN, 6);
-	private static final Command settingsCmd = new Command("Настройки", Command.SCREEN, 7);
-	private static final Command aboutCmd = new Command("О программе", Command.SCREEN, 8);
+	private static final Command reverseCmd = new Command("Перевернуть", Command.SCREEN, 7);
+	private static final Command settingsCmd = new Command("Настройки", Command.SCREEN, 8);
+	private static final Command aboutCmd = new Command("О программе", Command.SCREEN, 9);
 
 	// Функции элементов
 	private static final Command submitCmd = new Command("Искать", Command.ITEM, 2);
@@ -148,6 +149,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		mainForm.addCommand(settingsCmd);
 		mainForm.addCommand(aboutCmd);
 		mainForm.addCommand(addBookmarkCmd);
+		mainForm.addCommand(reverseCmd);
 		dateField = new DateField("Дата", DateField.DATE);
 		dateField.setDate(new Date(System.currentTimeMillis()));
 		mainForm.append(dateField);
@@ -485,6 +487,24 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 			// зона или город
 			select(searchType, s, null);
+			return;
+		}
+		if(c == reverseCmd) {
+			String s = fromBtn.getText();
+			fromBtn.setText(toBtn.getText());
+			toBtn.setText(s);
+			
+			s = fromStation;
+			fromStation = toStation;
+			toStation = s;
+			
+			int i = fromZone;
+			fromZone = toZone;
+			toZone = i;
+			
+			i = fromCity;
+			fromCity = toCity;
+			toCity = i;
 			return;
 		}
 		if(c == removeCmd) { // удалить закладку
