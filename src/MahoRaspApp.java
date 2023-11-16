@@ -939,14 +939,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				// замена функции "отмена" на "готово"
 				if(searchChoice.getSelectedIndex() != -1) {
 					if(!searchCancel) break;
-					searchForm.removeCommand(cancelCmd);
+//					searchForm.removeCommand(cancelCmd);
 					searchForm.addCommand(doneCmd);
 					searchCancel = false;
 					break;
 				}
 				if(searchCancel) break;
 				searchForm.removeCommand(doneCmd);
-				searchForm.addCommand(cancelCmd);
+//				searchForm.addCommand(cancelCmd);
 				searchCancel = true;
 			} catch (Throwable e) {
 				Alert a = new Alert("");
