@@ -391,27 +391,38 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			return;
 		}
 		if(c == addBookmarkCmd) {
-			// загрузить закладки
-			if(bookmarks == null) {
-				try {
-					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
-					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
-					r.closeRecordStore();
-				} catch (Exception e) {
-					bookmarks = new JSONArray();
-				}
-			}
-			
 			// пункты не выбраны
 			if((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
 				return;
 			}
 			
+			String fn = fromBtn.getText();
+			String tn = toBtn.getText();
+			
+			// загрузить закладки
+			if(bookmarks == null) {
+				try {
+					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
+					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
+					bookmarks.parseTree();
+					r.closeRecordStore();
+				} catch (Exception e) {
+					bookmarks = new JSONArray();
+				}
+			} else {
+				// есть ли уже такая закладка
+				int l = bookmarks.size();
+				for(int i = 0; i < l; i++) {
+					JSONObject j = bookmarks.getObject(i);
+					if(fn.equals(j.getString("fn")) && tn.equals(j.getString("tn"))) return;  
+				}
+			}
+			
 			JSONObject bm = new JSONObject();
-			bm.put("fn", fromBtn.getText());
+			bm.put("fn", fn);
 			bm.put("fz", fromZone);
 			bm.put("fs", fromStation);
-			bm.put("tn", toBtn.getText());
+			bm.put("tn", tn);
 			bm.put("tz", toZone);
 			bm.put("ts", toStation);
 			bookmarks.add(bm);
@@ -800,6 +811,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				if(bookmarks == null) {
 					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
 					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
+					bookmarks.parseTree();
 					r.closeRecordStore();
 				}
 				for(Enumeration e = bookmarks.elements(); e.hasMoreElements();) {
@@ -1071,7 +1083,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		Alert a = new Alert("");
 		a.setString(text);
 		a.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
-		a.setTimeout(5000);
+//		a.setTimeout(5000);
 		return a;
 	}
 	
