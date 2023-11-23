@@ -393,7 +393,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				try {
 					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
 					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
-					bookmarks.parseTree();
 					r.closeRecordStore();
 				} catch (Exception e) {
 					bookmarks = new JSONArray();
@@ -820,7 +819,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				if(bookmarks == null) {
 					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
 					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
-					bookmarks.parseTree();
 					r.closeRecordStore();
 				}
 				l.addCommand(removeBookmarkCmd);
