@@ -485,7 +485,7 @@ public class JSONArray extends AbstractJSON {
 	
 	private void insertElementAt(Object object, int index) {
 		if (object == this) throw new JSONException();
-		if (index < 0 || index >= count) {
+		if (index < 0 || index > count) {
 			throw new JSONException("Index out of bounds: " + index);
 		}
 		if (count == elements.length) grow();
@@ -493,11 +493,12 @@ public class JSONArray extends AbstractJSON {
 		if (size > 0)
 			System.arraycopy(elements, index, elements, index + 1, size);
 		elements[index] = object;
-		size++;
+		count++;
 	}
 	
 	private int _indexOf(Object object, int start) {
 		for (int i = 0; i < count; i++) {
+			if(elements[i] instanceof JSONString) elements[i] = JSON.parseJSON(elements[i].toString());
 			if (object.equals(elements[i])) return i;
 		}
 		return -1;
