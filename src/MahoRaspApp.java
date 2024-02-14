@@ -676,7 +676,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 							text.setText("Пусто");
 						}
 					} catch (Exception e2) {
-						e2.printStackTrace();
 						text.setLabel("Результаты");
 						text.setText("Нет сети!\n" + e.toString());
 					}
@@ -791,7 +790,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					f.append(s);
 				}
 			} catch (Exception e) {
-				e.printStackTrace();
 				f.append(e.toString());
 			}
 			display(f);
@@ -810,7 +808,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					}
 				}
 			} catch (Exception e) {
-				e.printStackTrace();
 			}
 			display(mainForm);
 			break;
@@ -831,7 +828,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					l.append(bm.getString("fn") + " - " + bm.getString("tn"), null);
 				}
 			} catch (Exception e) {
-				e.printStackTrace();
 			}
 			display(l);
 			break;
