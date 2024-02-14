@@ -70,9 +70,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static final String SCHEDULE_RECORDPREFIX = "mahoLD";
 	private static final String BOOKMARKS_RECORDNAME = "mahoLbm";
 	
-	private boolean started;
-	
 	public static MahoRaspApp midlet;
+	private Display display;
+	
+	private boolean started;
 
 	// бд зон и городов
 	private int[][] zonesAndCities;
@@ -179,6 +180,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	protected void startApp() {
 		if(started) return;
 		started = true;
+		display = Display.getDisplay(this);
 		display(loadingForm);
 		// парс зон
 		try {
@@ -266,7 +268,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		if(c == itemCmd) {
 			threadUid = (String) uids.get(i);
 			if(i == null) return;
-			display(loadingAlert("Загрузка"));
+			display(loadingAlert("Загрузка"), null);
 			run(3);
 			return;
 		}
@@ -374,7 +376,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		}
 		if(c == bookmarksCmd) {
 			if(running) return;
-			loadingAlert("Загрузка");
+			display(loadingAlert("Загрузка"));
 			run(5);
 			return;
 		}
@@ -427,6 +429,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				r.closeRecordStore();
 			} catch (Exception e) {
 			}
+			display(infoAlert("Закладка добавлена"), null);
 			return;
 		}
 		if(c == cacheScheduleCmd) {
@@ -499,6 +502,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			int idx;
 			((List)d).delete(idx = ((List)d).getSelectedIndex());
 			bookmarks.remove(idx);
+			display(infoAlert("Закладка удалена"), null);
 			return;
 		}
 		if(c == List.SELECT_COMMAND) { // выбрана закладка
@@ -909,7 +913,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				e.printStackTrace();
 				display(new Alert("Ошибка", e.toString(), null, AlertType.ERROR));
 			}
-		case 7:
+		case 7: // поиск точки
 			try {
 				String query = searchField.getString().toLowerCase().trim();
 				searchChoice.deleteAll();
@@ -1079,13 +1083,21 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 	
 	/// Утилки
+	
+	private void display(Alert a, Displayable d) {
+		if(d == null) {
+			display.setCurrent(a);
+			return;
+		}
+		display.setCurrent(a, d);
+	}
 
 	private void display(Displayable d) {
 		if(d instanceof Alert) {
-			Display.getDisplay(this).setCurrent((Alert) d, mainForm);
+			display.setCurrent((Alert) d, mainForm);
 			return;
 		}
-		Display.getDisplay(this).setCurrent(d);
+		display.setCurrent(d);
 	}
 
 	private Alert loadingAlert(String text) {
@@ -1099,6 +1111,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private Alert warningAlert(String text) {
 		Alert a = new Alert("");
 		a.setType(AlertType.ERROR);
+		a.setString(text);
+		a.setTimeout(2000);
+		return a;
+	}
+	
+	private Alert infoAlert(String text) {
+		Alert a = new Alert("");
+		a.setType(AlertType.INFO);
 		a.setString(text);
 		a.setTimeout(2000);
 		return a;
