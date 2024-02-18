@@ -1,6 +1,6 @@
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Enumeration;
@@ -9,6 +9,8 @@ import java.util.Vector;
 
 import javax.microedition.io.Connector;
 import javax.microedition.io.HttpConnection;
+import javax.microedition.io.file.FileConnection;
+import javax.microedition.io.file.FileSystemRegistry;
 import javax.microedition.lcdui.Alert;
 import javax.microedition.lcdui.AlertType;
 import javax.microedition.lcdui.Choice;
@@ -53,6 +55,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static final Command itemCmd = new Command("Остановки", Command.ITEM, 2);
 	private static final Command clearStationsCmd = new Command("Очистить станции", Command.ITEM, 2);
 	private static final Command clearScheduleCmd = new Command("Очистить расписания", Command.ITEM, 2);
+	private static final Command importStationsCmd = new Command("Импорт.", Command.ITEM, 2);
+	private static final Command exportStationsCmd = new Command("Экспорт.", Command.ITEM, 2);
 	private static final Command removeBookmarkCmd = new Command("Удалить", Command.ITEM, 2);
 	
 	// Команды диалогов
@@ -64,14 +68,21 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static final Command doneCmd = new Command("Готово", Command.OK, 1);
 	private static final Command cancelCmd = new Command("Отмена", Command.CANCEL, 1);
 	
+	// команды файл менеджера
+	private final static Command dirOpenCmd = new Command("Открыть", Command.ITEM, 1);
+	private final static Command dirSelectCmd = new Command("Выбрать", Command.SCREEN, 2);
+	
 	// Константы названий RecordStore
 	private static final String SETTINGS_RECORDNAME = "mahoLsets";
 	private static final String STATIONS_RECORDPREFIX = "mahoLS_";
 	private static final String SCHEDULE_RECORDPREFIX = "mahoLD";
 	private static final String BOOKMARKS_RECORDNAME = "mahoLbm";
 	
+	private static final String STATIONS_FILEPREFIX = "mLzone_";
+	
 	public static MahoRaspApp midlet;
 	private Display display;
+	private Font smallfont = Font.getFont(0, 0, 8);
 	
 	private boolean started;
 
@@ -128,6 +139,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private ChoiceGroup searchChoice;
 	private JSONArray searchStations;
 	private boolean searchCancel;
+	
+	private String curDir;
+	private Vector rootsList;
+	private int fileMode;
+	private int saveZone;
+
+	private List fileList;
 
 	/// UI
 	
@@ -184,7 +202,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		display(loadingForm);
 		// парс зон
 		try {
-			JSONObject j = JSON.getObject(new String(readBytes("".getClass().getResourceAsStream("/zones.json")), "UTF-8"));
+			JSONObject j = JSON.getObject(new String(readBytes("".getClass().getResourceAsStream("/zones.json"), 40677, 1024, 2048), "UTF-8"));
 			int i = 0;
 			int l = j.size();
 			zonesAndCities = new int[l][];
@@ -272,12 +290,162 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			run(3);
 			return;
 		}
+		// настройки
+		if(c == importStationsCmd) {
+			showFileList(1);
+			return;
+		}
+		if(c == exportStationsCmd) {
+			choosing = 2;
+			display(searchForm(1, 0, null));
+			return;
+		}
+		if(c == clearStationsCmd) {
+			if(running) return;
+			display(loadingAlert("Очистка станций"), settingsForm);
+			clear = STATIONS_RECORDPREFIX;
+			run(4);
+			return;
+		}
+		if(c == clearScheduleCmd) {
+			if(running) return;
+			display(loadingAlert("Очистка расписаний"), settingsForm);
+			clear = SCHEDULE_RECORDPREFIX;
+			run(4);
+			return;
+		}
 		this.commandAction(c, mainForm);
 	}
 
 	public void commandAction(Command c, Displayable d) {
 		if(c == exitCmd) {
 			notifyDestroyed();
+			return;
+		}
+		if(d == fileList) {
+			if(c == backCmd) {
+				if(curDir == null) {
+					fileList = null;
+					display(settingsForm);
+				} else {
+					if(curDir.indexOf("/") == -1) {
+						fileList = new List("", List.IMPLICIT);
+						fileList.addCommand(backCmd);
+						fileList.setTitle("");
+						fileList.addCommand(List.SELECT_COMMAND);
+						fileList.setSelectCommand(List.SELECT_COMMAND);
+						fileList.setCommandListener(this);
+						for(int i = 0; i < rootsList.size(); i++) {
+							String s = (String) rootsList.elementAt(i);
+							if(s.startsWith("file:///")) s = s.substring("file:///".length());
+							if(s.endsWith("/")) s = s.substring(0, s.length() - 1);
+							fileList.append(s, null);
+						}
+						curDir = null;
+						display(fileList);
+						return;
+					}
+					String sub = curDir.substring(0, curDir.lastIndexOf('/'));
+					String fn = "";
+					if(sub.indexOf('/') != -1) {
+						fn = sub.substring(sub.lastIndexOf('/') + 1);
+					} else {
+						fn = sub;
+					}
+					curDir = sub;
+					showFileList(sub + "/", fn);
+				}
+			}
+			if(c == dirOpenCmd || c == List.SELECT_COMMAND) {
+				String fs = curDir;
+				String f = "";
+				if(fs != null) f += curDir + "/";
+				String is = fileList.getString(fileList.getSelectedIndex());
+				if("- Выбрать".equals(is)) {
+					fileList = null;
+					// экспорт
+					if(fileMode == 2) {
+						FileConnection fc = null;
+						OutputStream o = null;
+						try {
+							fc = (FileConnection) Connector.open("file:///" + f + STATIONS_FILEPREFIX + saveZone + ".json", 3);
+							if (fc.exists())
+								fc.delete();
+							fc.create();
+							o = fc.openDataOutputStream();
+							RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + saveZone, true);
+							o.write(rs.getRecord(1));
+							rs.closeRecordStore();
+							o.flush();
+							display(infoAlert("Станции экспортированы"), settingsForm);
+						} catch (Exception e) {
+							display(warningAlert("Не удалось экспортировать станции: " + e.toString()), settingsForm);
+						} finally {
+							try {
+								if (o != null)
+									o.close();
+								if (fc != null)
+									fc.close();
+							} catch (Exception e) {
+							}
+						}
+					}
+					curDir = null;
+					return;
+				}
+				f += is;
+				// импорт
+				if(fileMode == 1 && is.endsWith(".json") && is.startsWith(STATIONS_FILEPREFIX)) {
+					display(loadingAlert("Импортирование"), settingsForm);
+					FileConnection fc = null;
+					InputStream in = null;
+					try {
+						int zone = Integer.parseInt(is.substring(STATIONS_FILEPREFIX.length(), is.length()-5));
+						String zoneName = null;
+						if(zone > 0) {
+							int i = 0;
+							while(zonesAndCities[i][0] != zone && ++i < zoneNames.length);
+							if(i < zoneNames.length) {
+								zoneName = zoneNames[i];
+								fc = (FileConnection) Connector.open("file:///" + f);
+								in = fc.openInputStream();
+								byte[] b = readBytes(in, (int) fc.fileSize(), 1024, 2048);
+								RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + zone, true);
+								try {
+									rs.setRecord(1, b, 0, b.length);
+								} catch (Exception e) {
+									rs.addRecord(b, 0, b.length);
+								}
+								rs.closeRecordStore();
+							}
+						}
+						if(zoneName != null)
+							display(infoAlert("Станции зоны \"" + zoneName + "\" импортированы"), settingsForm);
+						else
+							display(warningAlert("Не поддерживаемый ID зоны"), settingsForm);
+					} catch (Exception e) {
+						display(warningAlert("Не удалось импортировать станции: " + e.toString()), settingsForm);
+					} finally {
+						try {
+							if (in != null)
+								in.close();
+							if (fc != null)
+								fc.close();
+						} catch (Exception e) {
+						}
+					}
+					curDir = null;
+			        return;
+				}
+				curDir = f;
+				showFileList(f + "/", is);
+				return;
+			}
+			if(c == dirSelectCmd) {
+				fileList = null;
+				curDir = null;
+				display(settingsForm);
+			}
 			return;
 		}
 		if(c == okCmd || c == backCmd) {
@@ -345,33 +513,36 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			settingsDefaultTypeChoice = new ChoiceGroup("Выбор пункта по умолчанию", Choice.POPUP, new String[] { "Спрашивать", "Город", "Станция" }, null);
 			settingsDefaultTypeChoice.setSelectedIndex(defaultChoiceType, true);
 			settingsForm.append(settingsDefaultTypeChoice);
-			StringItem clearStationsBtn = new StringItem("", "Очистить станции", StringItem.BUTTON);
-			clearStationsBtn.addCommand(clearStationsCmd);
-			clearStationsBtn.setDefaultCommand(clearStationsCmd);
-			clearStationsBtn.setItemCommandListener(this);
-			clearStationsBtn.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_EXPAND);
-			settingsForm.append(clearStationsBtn);
-			StringItem clearScheduleBtn = new StringItem("", "Очистить расписания", StringItem.BUTTON);
-			clearScheduleBtn.addCommand(clearScheduleCmd);
-			clearScheduleBtn.setDefaultCommand(clearScheduleCmd);
-			clearScheduleBtn.setItemCommandListener(this);
-			clearScheduleBtn.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_EXPAND);
-			settingsForm.append(clearScheduleBtn);
+			StringItem s;
+			s = new StringItem("", "Очистить станции", StringItem.BUTTON);
+			s.addCommand(clearStationsCmd);
+			s.setDefaultCommand(clearStationsCmd);
+			s.setItemCommandListener(this);
+			s.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_EXPAND);
+			settingsForm.append(s);
+			
+			s = new StringItem("", "Очистить расписания", StringItem.BUTTON);
+			s.addCommand(clearScheduleCmd);
+			s.setDefaultCommand(clearScheduleCmd);
+			s.setItemCommandListener(this);
+			s.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_EXPAND);
+			settingsForm.append(s);
+			
+			s = new StringItem("", "Импорт. кэш станций", StringItem.BUTTON);
+			s.addCommand(importStationsCmd);
+			s.setDefaultCommand(importStationsCmd);
+			s.setItemCommandListener(this);
+			s.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_EXPAND);
+			settingsForm.append(s);
+			
+			s = new StringItem("", "Экспорт. кэш станций", StringItem.BUTTON);
+			s.addCommand(exportStationsCmd);
+			s.setDefaultCommand(exportStationsCmd);
+			s.setItemCommandListener(this);
+			s.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_EXPAND);
+			settingsForm.append(s);
+			
 			display(settingsForm);
-			return;
-		}
-		if(c == clearStationsCmd) {
-			if(running) return;
-			Display.getDisplay(this).setCurrent(loadingAlert("Очистка станций"), settingsForm);
-			clear = STATIONS_RECORDPREFIX;
-			run(4);
-			return;
-		}
-		if(c == clearScheduleCmd) {
-			if(running) return;
-			Display.getDisplay(this).setCurrent(loadingAlert("Очистка расписаний"), settingsForm);
-			clear = SCHEDULE_RECORDPREFIX;
-			run(4);
 			return;
 		}
 		if(c == bookmarksCmd) {
@@ -548,6 +719,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				display(progressAlert);
 				run(1);
 				break;
+			case 5:
+				display(searchForm);
+				break;
 			}
 		}
 	}
@@ -558,11 +732,61 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		}
 	}
 	
+	private void showFileList(String f, String title) {
+		fileList = new List(title, List.IMPLICIT);
+		fileList.setTitle(title);
+		fileList.addCommand(backCmd);
+		fileList.addCommand(List.SELECT_COMMAND);
+		fileList.setSelectCommand(List.SELECT_COMMAND);
+		fileList.setCommandListener(this);
+		if(fileMode != 1) {
+			fileList.addCommand(dirSelectCmd);
+			fileList.append("- Выбрать", null);
+		}
+		try {
+			FileConnection fc = (FileConnection) Connector.open("file:///" + f);
+			Enumeration list = fc.list();
+			while(list.hasMoreElements()) {
+				String s = (String) list.nextElement();
+				if(s.endsWith("/")) {
+					fileList.append(s.substring(0, s.length() - 1), null);
+				} else if(s.startsWith(STATIONS_FILEPREFIX) && s.endsWith(".json")) {
+					fileList.append(s, null);
+				}
+			}
+			fc.close();
+		} catch (Exception e) {
+		}
+		display(fileList);
+	}
+	
+	private void showFileList(int mode) {
+		fileMode = mode;
+		fileList = new List("", List.IMPLICIT);
+		getRoots();
+		for(int i = 0; i < rootsList.size(); i++) {
+			String s = (String) rootsList.elementAt(i);
+			if(s.startsWith("file:///")) s = s.substring("file:///".length());
+			if(s.endsWith("/")) s = s.substring(0, s.length() - 1);
+			fileList.append(s, null);
+		}
+		fileList.addCommand(List.SELECT_COMMAND);
+		fileList.setSelectCommand(List.SELECT_COMMAND);
+		fileList.addCommand(backCmd);
+		fileList.setCommandListener(this);
+		display(fileList);
+	}
+	
 	private Form searchForm(int type, int zone, JSONArray stations) {
-		String zoneName = null;
-		int i = 0;
-		if(zone != 0) while(zonesAndCities[i][0] != zone && ++i < zoneNames.length);
-		searchForm = new Form((type == 1 ? "Выбор зоны" : type == 2 ? "Выбор города" : "Выбор станции") + (zoneName != null ? " (" + zoneName + ")" : ""));
+//		String zoneName = null;
+//		if(zone != 0) {
+//			int i = 0;
+//			while(zonesAndCities[i][0] != zone && ++i < zoneNames.length);
+//			zoneName = zoneNames[i];
+//		}
+		searchForm = new Form((type == 1 ? "Выбор зоны" : type == 2 ? "Выбор города" : "Выбор станции")
+//				+ (zoneName != null ? " (" + zoneName + ")" : "")
+				);
 		searchCancel = true;
 		searchType = type;
 		searchZone = zone;
@@ -608,7 +832,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				byte[] b = r.toString().getBytes("UTF-8");
 				rs.addRecord(b, 0, b.length);
 				rs.closeRecordStore();
-				rs = null;
+				if(choosing == 3) {
+					showFileList(2);
+					break;
+				}
 				display(searchForm(3, downloadZone, r));
 				break;
 			} catch (Exception e) {
@@ -664,7 +891,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 							for(Enumeration e2 = a.elements(); e2.hasMoreElements();) {
 								JSONObject seg = (JSONObject) e2.nextElement();
 								StringItem s = new StringItem(seg.getString("t"), seg.getString("r"));
-								s.setFont(Font.getFont(0, 0, 8));
+								s.setFont(smallfont);
 								s.addCommand(itemCmd);
 								s.setDefaultCommand(itemCmd);
 								s.setItemCommandListener(this);
@@ -755,7 +982,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						}
 
 						StringItem s = new StringItem(time, res);
-						s.setFont(Font.getFont(0, 0, 8));
+						s.setFont(smallfont);
 //						s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_BEFORE);
 						s.addCommand(itemCmd);
 						s.setDefaultCommand(itemCmd);
@@ -786,7 +1013,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				for(Enumeration e = j.getArray("stations").elements(); e.hasMoreElements();) {
 					JSONObject station = (JSONObject) e.nextElement();
 					StringItem s = new StringItem("", station.getString("title") + " " + time(station.getNullableString("departure_local"))+"\n");
-					s.setFont(Font.getFont(0, 0, 8));
+					s.setFont(smallfont);
 					f.append(s);
 				}
 			} catch (Exception e) {
@@ -997,7 +1224,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			int id = 0;
 			while(!s.equals(zoneNames[id]) && ++id < zoneNames.length);
 			id = zonesAndCities[id][0];
-			if(choosing == 1) {
+			if(choosing == 2) {
+				saveZone = id;
+			} else if(choosing == 1) {
 				fromZone = id;
 			} else {
 				toZone = id;
@@ -1006,14 +1235,19 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			try {
 				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + id, false);
 				JSONArray r = JSON.getArray(new String(rs.getRecord(1), "UTF-8"));
-				display(searchForm(3, id, r));
+				if(choosing == 2) {
+					showFileList(2);
+				} else {
+					display(searchForm(3, id, r));
+				}
 				rs.closeRecordStore();
 			} catch (Exception e) {
 				downloadZone = id;
 				Alert a = new Alert("");
 				a.setString("Станции зоны \"" + s + "\" не найдены в кэше. Загрузить?");
 				a.addCommand(new Command("Загрузить", Command.OK, 4));
-				a.addCommand(new Command("Выбрать город", Command.CANCEL, 3));
+				a.addCommand(choosing == 2 ? new Command("Отмена", Command.CANCEL, 5) :
+						new Command("Выбрать город", Command.CANCEL, 3));
 				a.setCommandListener(this);
 				display(a);
 			}
@@ -1100,7 +1334,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		Alert a = new Alert("");
 		a.setString(text);
 		a.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
-//		a.setTimeout(5000);
+		a.setTimeout(30000);
 		return a;
 	}
 
@@ -1120,17 +1354,27 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		return a;
 	}
 	
-	private static byte[] readBytes(InputStream is) throws IOException {
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		final byte[] buf = new byte[128];
-		int read;
-		while ((read = is.read(buf)) != -1) {
-			baos.write(buf, 0, read);
+	private static byte[] readBytes(InputStream inputStream, int initialSize, int bufferSize, int expandSize) throws IOException {
+		if (initialSize <= 0) initialSize = bufferSize;
+		byte[] buf = new byte[initialSize];
+		int count = 0;
+		byte[] readBuf = new byte[bufferSize];
+		int readLen;
+		while ((readLen = inputStream.read(readBuf)) != -1) {
+			if(count + readLen > buf.length) {
+				byte[] newbuf = new byte[count + expandSize];
+				System.arraycopy(buf, 0, newbuf, 0, count);
+				buf = newbuf;
+			}
+			System.arraycopy(readBuf, 0, buf, count, readLen);
+			count += readLen;
 		}
-		is.close();
-		byte[] b = baos.toByteArray();
-		baos.close();
-		return b;
+		if(buf.length == count) {
+			return buf;
+		}
+		byte[] res = new byte[count];
+		System.arraycopy(buf, 0, res, 0, count);
+		return res;
 	}
 	
 	private static String n(int n) {
@@ -1249,7 +1493,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		return r;
 	}
 	
-//	private static String url(String url) {
+//	 static String url(String url) {
 //		StringBuffer sb = new StringBuffer();
 //		char[] chars = url.toCharArray();
 //		for (int i = 0; i < chars.length; i++) {
@@ -1285,22 +1529,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 //	}
 	
 	private static byte[] get(String url) throws IOException {
-		ByteArrayOutputStream o = null;
 		HttpConnection hc = null;
 		InputStream in = null;
 		try {
 			hc = (HttpConnection) Connector.open(url);
 			hc.setRequestMethod("GET");
 			hc.getResponseCode();
-			//if(r != 200) throw new IOException(r + " " + hc.getResponseMessage());
 			in = hc.openInputStream();
-			int read;
-			o = new ByteArrayOutputStream();
-			byte[] b = new byte[512];
-			while((read = in.read(b)) != -1) {
-				o.write(b, 0, read);
-			}
-			return o.toByteArray();
+			return readBytes(in, (int) hc.getLength(), 1024, 2048);
 		} finally {
 			try {
 				if (in != null) in.close();
@@ -1308,10 +1544,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 			try {
 				if (hc != null) hc.close();
-			} catch (IOException e) {
-			}
-			try {
-				if (o != null) o.close();
 			} catch (IOException e) {
 			}
 		}
@@ -1345,6 +1577,20 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			return true;
 		} catch (Exception e) {
 			return false;
+		}
+	}
+	
+	public void getRoots() {
+		if(rootsList != null) return;
+		rootsList = new Vector();
+		try {
+			Enumeration roots = FileSystemRegistry.listRoots();
+			while(roots.hasMoreElements()) {
+				String s = (String) roots.nextElement();
+				if(s.startsWith("file:///")) s = s.substring("file:///".length());
+				rootsList.addElement(s);
+			}
+		} catch (Exception e) {
 		}
 	}
 
