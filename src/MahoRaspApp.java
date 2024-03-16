@@ -1348,9 +1348,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	
 	private Alert infoAlert(String text) {
 		Alert a = new Alert("");
-		a.setType(AlertType.INFO);
+		a.setType(AlertType.CONFIRMATION);
 		a.setString(text);
-		a.setTimeout(2000);
+		a.setTimeout(1500);
 		return a;
 	}
 	
