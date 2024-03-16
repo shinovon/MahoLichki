@@ -91,82 +91,84 @@ public final class JSON {
 		case '"': { // string
 			if (last != '"')
 				throw new JSONException("Unexpected end of text");
-			char[] chars = str.substring(1, length).toCharArray();
-			str = null;
-			int l = chars.length;
-			StringBuffer sb = new StringBuffer();
-			int i = 0;
-			// parse escaped chars in string
-			loop: {
-				while (i < l) {
-					char c = chars[i];
-					switch (c) {
-					case '\\': {
-						next: {
-							replace: {
-								if (l < i + 1) {
-									sb.append(c);
-									break loop;
+			if(str.indexOf('\\') != -1) {
+				char[] chars = str.substring(1, length).toCharArray();
+				str = null;
+				int l = chars.length;
+				StringBuffer sb = new StringBuffer();
+				int i = 0;
+				// parse escaped chars in string
+				loop: {
+					while (i < l) {
+						char c = chars[i];
+						switch (c) {
+						case '\\': {
+							next: {
+								replace: {
+									if (l < i + 1) {
+										sb.append(c);
+										break loop;
+									}
+									char c1 = chars[i + 1];
+									switch (c1) {
+									case 'u':
+										i+=2;
+										sb.append((char) Integer.parseInt(
+												new String(new char[] {chars[i++], chars[i++], chars[i++], chars[i++]}),
+												16));
+										break replace;
+									case 'x':
+										i+=2;
+										sb.append((char) Integer.parseInt(
+												new String(new char[] {chars[i++], chars[i++]}),
+												16));
+										break replace;
+									case 'n':
+										sb.append('\n');
+										i+=2;
+										break replace;
+									case 'r':
+										sb.append('\r');
+										i+=2;
+										break replace;
+									case 't':
+										sb.append('\t');
+										i+=2;
+										break replace;
+									case 'f':
+										sb.append('\f');
+										i+=2;
+										break replace;
+									case 'b':
+										sb.append('\b');
+										i+=2;
+										break replace;
+									case '\"':
+									case '\'':
+									case '\\':
+									case '/':
+										i+=2;
+										sb.append((char) c1);
+										break replace;
+									default:
+										break next;
+									}
 								}
-								char c1 = chars[i + 1];
-								switch (c1) {
-								case 'u':
-									i+=2;
-									sb.append((char) Integer.parseInt(
-											new String(new char[] {chars[i++], chars[i++], chars[i++], chars[i++]}),
-											16));
-									break replace;
-								case 'x':
-									i+=2;
-									sb.append((char) Integer.parseInt(
-											new String(new char[] {chars[i++], chars[i++]}),
-											16));
-									break replace;
-								case 'n':
-									sb.append('\n');
-									i+=2;
-									break replace;
-								case 'r':
-									sb.append('\r');
-									i+=2;
-									break replace;
-								case 't':
-									sb.append('\t');
-									i+=2;
-									break replace;
-								case 'f':
-									sb.append('\f');
-									i+=2;
-									break replace;
-								case 'b':
-									sb.append('\b');
-									i+=2;
-									break replace;
-								case '\"':
-								case '\'':
-								case '\\':
-								case '/':
-									i+=2;
-									sb.append((char) c1);
-									break replace;
-								default:
-									break next;
-								}
+								break;
 							}
+							sb.append(c);
+							i++;
 							break;
 						}
-						sb.append(c);
-						i++;
-						break;
-					}
-					default:
-						sb.append(c);
-						i++;
+						default:
+							sb.append(c);
+							i++;
+						}
 					}
 				}
+				str = sb.toString();
+				sb = null;
 			}
-			str = sb.toString();
-			sb = null;
 			return str;
 		}
 		case '{': // JSON object or array
@@ -311,7 +313,6 @@ public final class JSON {
 	}
 
 	static double getDouble(Object o) throws JSONException {
-		if (isNull(o)) throw new JSONException("null");
 		try {
 			if (o instanceof JSONString)
 				return Double.parseDouble(((JSONString) o).str);
@@ -326,7 +327,6 @@ public final class JSON {
 	}
 
 	static int getInt(Object o) throws JSONException {
-		if (isNull(o)) throw new JSONException("null");
 		try {
 			if (o instanceof JSONString)
 				return Integer.parseInt(((JSONString) o).str);
@@ -341,7 +341,6 @@ public final class JSON {
 	}
 
 	static long getLong(Object o) throws JSONException {
-		if (isNull(o)) throw new JSONException("null");
 		try {
 			if (o instanceof JSONString)
 				return Long.parseLong(((JSONString) o).str);
