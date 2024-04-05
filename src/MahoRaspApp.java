@@ -297,7 +297,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			return;
 		}
 		if(c == exportStationsCmd) {
-			choosing = 2;
+			choosing = 3;
 			display(searchForm(1, 0, null));
 			return;
 		}
@@ -1203,7 +1203,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			int id = 0;
 			while(!s.equals(zoneNames[id]) && ++id < zoneNames.length);
 			id = zonesAndCities[id][0];
-			if(choosing == 2) {
+			if(choosing == 3) {
 				saveZone = id;
 			} else if(choosing == 1) {
 				fromZone = id;
@@ -1214,7 +1214,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			try {
 				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + id, false);
 				JSONArray r = JSON.getArray(new String(rs.getRecord(1), "UTF-8"));
-				if(choosing == 2) {
+				if(choosing == 3) {
 					showFileList(2);
 				} else {
 					display(searchForm(3, id, r));
@@ -1225,7 +1225,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				Alert a = new Alert("");
 				a.setString("Станции зоны \"" + s + "\" не найдены в кэше. Загрузить?");
 				a.addCommand(new Command("Загрузить", Command.OK, 4));
-				a.addCommand(choosing == 2 ? new Command("Отмена", Command.CANCEL, 5) :
+				a.addCommand(choosing == 3 ? new Command("Отмена", Command.CANCEL, 5) :
 						new Command("Выбрать город", Command.CANCEL, 3));
 				a.setCommandListener(midlet);
 				display(a);
