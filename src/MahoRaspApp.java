@@ -1445,13 +1445,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				in = hc.openInputStream();
 				byte[] buf = new byte[(i = (int) hc.getLength()) == -1 ? 1024 : i];
 				i = 0;
-				while ((j = in.read(buf, i, buf.length - i)) != -1) {
-					if(j == 0) {
-						byte[] newbuf;
-						System.arraycopy(buf, 0, newbuf = new byte[i + 2048], 0, i);
-						buf = newbuf;
+				while((j = in.read(buf, i, buf.length - i)) != -1) {
+					if((i += j) == buf.length) {
+						System.arraycopy(buf, 0, buf = new byte[i + 2048], 0, i);
 					}
-					i += j;
 				}
 				r = new String(buf, 0, i, "UTF-8");
 			} finally {
