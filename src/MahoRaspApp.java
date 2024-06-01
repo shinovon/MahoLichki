@@ -26,6 +26,8 @@ import javax.microedition.lcdui.Displayable;
 import javax.microedition.lcdui.Font;
 import javax.microedition.lcdui.Form;
 import javax.microedition.lcdui.Gauge;
+import javax.microedition.lcdui.Image;
+import javax.microedition.lcdui.ImageItem;
 import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
 import javax.microedition.lcdui.ItemStateListener;
@@ -503,7 +505,19 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			Form f = new Form("О программе");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
-			f.append(new StringItem("Махолички v" + this.getAppProperty("MIDlet-Version"), "Разработчик: shinovon\nНазвание придумал: sym_ansel\nПредложил: MuseCat77\n\n292 labs"));
+
+			StringItem s;
+			try {
+				f.append(new ImageItem(null, Image.createImage("/icon.png"), Item.LAYOUT_LEFT, null));
+			} catch (IOException ignored) {}
+			s = new StringItem(null, "МахоЛички v" + getAppProperty("MIDlet-Version"));
+			s.setFont(Font.getFont(0, 0, Font.SIZE_LARGE));
+			s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_VCENTER);
+			f.append(s);
+			s = new StringItem(null, "Разработчик: shinovon\nНазвание, иконка: sym_ansel\nПредложил: MuseCat77\n\n292 labs");
+			s.setFont(Font.getDefaultFont());
+			s.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_LEFT);
+			f.append(s);
 			display(f);
 			return;
 		}
@@ -902,7 +916,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						JSONObject departure = seg.getObject("departure");
 						Calendar c = parseDate(departure.getString("time_utc"));
 						// пропускать ушедшие сегодня
-						if(!showGone && oneDay(c, server_time) && c.before(server_time)) continue;
+						if(!showGone && oneDay(parseDate(departure.getString("time")), server_time) && c.before(server_time)) continue;
 						count2++;
 						
 						JSONObject thread = seg.getObject("thread");
