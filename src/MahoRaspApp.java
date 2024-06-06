@@ -702,7 +702,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				}
 				rs.closeRecordStore();
 			} catch (Exception e) {
-				downloadZone = i;
+				downloadZone = zone;
 				Alert a = new Alert("");
 				a.setString("Станции зоны \"" + zoneNames[i] + "\" не найдены в кэше. Загрузить?");
 				a.addCommand(new Command("Загрузить", Command.OK, 4));
