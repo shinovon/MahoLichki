@@ -1181,15 +1181,22 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		case 7: // поиск точки
 			try {
 				String query = searchField.getString().toLowerCase().trim();
+				
+				// варианты для поиска по словам
+				String q1 = " ".concat(query);
+				String q2 = "(".concat(query);
+				String q3 = "-".concat(query);
+				
 				searchChoice.deleteAll();
-				// TODO: переделать поиск
 				search: {
 				if(searchType == 1) { // поиск зоны
 					if(query.length() < 2) break search;
 					int i = 0;
 					while(i < zoneNames.length) {
 						String s = zoneNames[i++];
-						if(!s.toLowerCase().startsWith(query)) continue;
+						String t = s.toLowerCase();
+						if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
+							continue;
 						searchChoice.append(s, null);
 					}
 				} else if(searchType == 2) { // поиск города
@@ -1199,7 +1206,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						int i = 0;
 						while(i < cityNames.length) {
 							String s = cityNames[i++];
-							if(!s.toLowerCase().startsWith(query)) continue;
+							String t = s.toLowerCase();
+							if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
+								continue;
 							searchChoice.append(s, null);
 						}
 					} else {
@@ -1210,19 +1219,23 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						i = 0;
 						while(i < c.length) {
 							String s = cityNames[c[i++]];
-							if(!s.toLowerCase().startsWith(query)) continue;
+							String t = s.toLowerCase();
+							if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
+								continue;
 							searchChoice.append(s, null);
 						}
 					}
 				} else if(searchType == 3) { // поиск станции
 					if(query.length() < 2) break search; 
-					Enumeration e = searchStations.elements();
-					while(e.hasMoreElements()) {
-						JSONObject s = (JSONObject) e.nextElement();
+					int l = searchStations.size(), i = 0;
+					while (i < l) {
+						JSONObject j = searchStations.getObject(i++);
 						// поиск в названии и направлении
-						if(!s.getString("d").toLowerCase().startsWith(query)
-								&& !s.getString("t").toLowerCase().startsWith(query)) continue;
-						searchChoice.append(s.getString("t") + " - " + s.getString("d"), null);
+						String t = j.getString("t").toLowerCase();
+						String d = j.getString("d").toLowerCase();
+						if(!d.startsWith(query) && !t.startsWith(query) && t.indexOf(q2) == -1 && t.indexOf(q1) == -1 && t.indexOf(q3) == -1)
+							continue;
+						searchChoice.append(j.getString("t").concat(" - ").concat(j.getString("d")), null);
 					}
 				}
 				}
