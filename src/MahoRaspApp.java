@@ -71,6 +71,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	// Команды формы поиска
 	private static final Command doneCmd = new Command("Готово", Command.OK, 1);
 	private static final Command cancelCmd = new Command("Отмена", Command.CANCEL, 1);
+	private static final Command showStationsCmd = new Command("Показать станции", Command.ITEM, 2);
 	
 	// команды файл менеджера
 	private final static Command dirOpenCmd = new Command("Открыть", Command.ITEM, 1);
@@ -97,7 +98,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static String[] cityNames;
 	
 	// Настройки
-	private static int defaultChoiceType;
+	private static int defaultChoiceType = 1; // 1 - город, 2 - станция, 0 - спрашивать
 	
 	private static Form mainForm;
 	private static Form loadingForm;
@@ -144,12 +145,12 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static JSONArray searchStations;
 	private static boolean searchCancel;
 	
+	// файлы
+	private static List fileList;
 	private static String curDir;
 	private static Vector rootsList;
 	private static int fileMode;
 	private static int saveZone;
-
-	private static List fileList;
 
 	/// UI
 	
@@ -618,7 +619,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			display(infoAlert("Закладка добавлена"), null);
 			return;
 		}
-		if(c == cacheScheduleCmd) {
+		if(c == cacheScheduleCmd) { // сохранить расписание в кэш
 			if(running) return;
 			// пункты не выбраны
 			if((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
@@ -659,7 +660,59 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			select(searchType, s, null);
 			return;
 		}
-		if(c == reverseCmd) {
+		if(c == showStationsCmd) { // показать станции зоны выбранного города
+			int idx = searchChoice.getSelectedIndex();
+			if (idx == -1 || searchType != 2) // игнорировать если выбор пустой
+				return;
+			
+			String name = searchChoice.getString(idx);
+
+			int i = 0, j, l = zoneNames.length;
+			int[] z;
+			
+			// поиск зоны по городу в ней
+			while (i < l) {
+				z = zonesAndCities[i];
+				
+				j = 1;
+				while (!name.equals(cityNames[z[j]]) && ++j < z.length);
+				
+				if (j < z.length) break; // город обнаружен, брейкаемся
+				i++;
+			}
+			
+			if(i == l) return; // поиск не удался
+			
+			int zone = zonesAndCities[i][0];
+			
+			// копипаста показа станций зоны
+			if(choosing == 1) {
+				fromZone = zone;
+			} else {
+				toZone = zone;
+			}
+			// проверка на наличие станций зоны в памяти
+			try {
+				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + zone, false);
+				JSONArray r = JSON.getArray(new String(rs.getRecord(1), "UTF-8"));
+				if(choosing == 3) {
+					showFileList(2);
+				} else {
+					display(searchForm(3, zone, r));
+				}
+				rs.closeRecordStore();
+			} catch (Exception e) {
+				downloadZone = i;
+				Alert a = new Alert("");
+				a.setString("Станции зоны \"" + zoneNames[i] + "\" не найдены в кэше. Загрузить?");
+				a.addCommand(new Command("Загрузить", Command.OK, 4));
+				a.addCommand(new Command("Отмена", Command.CANCEL, 5));
+				a.setCommandListener(midlet);
+				display(a);
+			}
+			return;
+		}
+		if(c == reverseCmd) { // поменять точки местами
 			String s = fromBtn.getText();
 			fromBtn.setText(toBtn.getText());
 			toBtn.setText(s);
@@ -1178,11 +1231,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					if(!searchCancel) break;
 //					searchForm.removeCommand(cancelCmd);
 					searchForm.addCommand(doneCmd);
+					if(searchType == 2) searchForm.addCommand(showStationsCmd);
 					searchCancel = false;
 					break;
 				}
 				if(searchCancel) break;
 				searchForm.removeCommand(doneCmd);
+				if(searchType == 2) searchForm.removeCommand(showStationsCmd);
 //				searchForm.addCommand(cancelCmd);
 				searchCancel = true;
 			} catch (Throwable e) {
