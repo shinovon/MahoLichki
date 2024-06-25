@@ -45,14 +45,17 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	
 	// Функции главной формы
 	private static final Command exitCmd = new Command("Выход", Command.EXIT, 1);
-	private static final Command showGoneCmd = new Command("Показать ушедшие", Command.SCREEN, 3);
-	private static final Command hideGoneCmd = new Command("Скрыть ушедшие", Command.SCREEN, 3);
 	private static final Command bookmarksCmd = new Command("Закладки", Command.SCREEN, 4);
-	private static final Command addBookmarkCmd = new Command("Добавить в закладки", Command.SCREEN, 5);
-	private static final Command cacheScheduleCmd = new Command("Сохранить", Command.SCREEN, 6);
-	private static final Command reverseCmd = new Command("Перевернуть", Command.SCREEN, 7);
+	private static final Command reverseCmd = new Command("Перевернуть", Command.ITEM, 7);
 	private static final Command settingsCmd = new Command("Настройки", Command.SCREEN, 8);
 	private static final Command aboutCmd = new Command("О программе", Command.SCREEN, 9);
+	
+	// Команды формы результатов
+	private static final Command showGoneCmd = new Command("Показать ушедшие", Command.SCREEN, 3);
+	private static final Command hideGoneCmd = new Command("Скрыть ушедшие", Command.SCREEN, 3);
+	private static final Command addBookmarkCmd = new Command("Добавить в закладки", Command.SCREEN, 5);
+	private static final Command cacheScheduleCmd = new Command("Сохранить", Command.SCREEN, 6);
+	private static final Command teasersCmd = new Command("Уведомления", Command.ITEM, 2);
 
 	// Функции элементов
 	private static final Command submitCmd = new Command("Искать", Command.ITEM, 2);
@@ -88,6 +91,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static MahoRaspApp midlet;
 	private static Display display;
 	private static Font smallfont = Font.getFont(0, 0, 8);
+	private static Font smallboldfont = Font.getFont(0, Font.STYLE_BOLD, 8);
 	
 	private boolean started;
 
@@ -103,10 +107,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static Form mainForm;
 	private static Form loadingForm;
 	private static Form settingsForm;
+	private static Form resForm;
 	
 	// UI главной
 	private static DateField dateField;
-	private static StringItem submitBtn;
 	private static StringItem text;
 	private static StringItem fromBtn;
 	private static StringItem toBtn;
@@ -135,6 +139,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static Hashtable uids = new Hashtable();
 	private static String clear;
 	private static JSONArray bookmarks;
+	private static JSONArray teasersJson;
 	
 	// форма поиска
 	private static Form searchForm;
@@ -219,37 +224,45 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		Form f = new Form("Махолички");
 		f.setCommandListener(this);
 		f.addCommand(exitCmd);
-		f.addCommand(showGone ? hideGoneCmd : showGoneCmd);
 		f.addCommand(bookmarksCmd);
 		f.addCommand(settingsCmd);
 		f.addCommand(aboutCmd);
-		f.addCommand(addBookmarkCmd);
-		f.addCommand(reverseCmd);
-		f.addCommand(cacheScheduleCmd);
+//		f.addCommand(reverseCmd);
 		dateField = new DateField("Дата", DateField.DATE);
 		dateField.setDate(new Date(System.currentTimeMillis()));
 		f.append(dateField);
-		fromBtn = new StringItem("Откуда", "Не выбрано", StringItem.BUTTON);
-		fromBtn.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
-		fromBtn.addCommand(chooseCmd);
-		fromBtn.setDefaultCommand(chooseCmd);
-		fromBtn.setItemCommandListener(this);
-		f.append(fromBtn);
-		toBtn = new StringItem("Куда", "Не выбрано", StringItem.BUTTON);
-		toBtn.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
-		toBtn.addCommand(chooseCmd);
-		toBtn.setDefaultCommand(chooseCmd);
-		toBtn.setItemCommandListener(this);
-		f.append(toBtn);
-		submitBtn = new StringItem(null, "Поиск", StringItem.BUTTON);
-		submitBtn.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
-		submitBtn.addCommand(submitCmd);
-		submitBtn.setDefaultCommand(submitCmd);
-		submitBtn.setItemCommandListener(this);
-		f.append(submitBtn);
-		text = new StringItem(null, "");
-		text.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_BEFORE);
-		f.append(text);
+		
+		StringItem s;
+		
+		s = new StringItem("Откуда", "Не выбрано", StringItem.BUTTON);
+		s.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+		s.addCommand(chooseCmd);
+		s.setDefaultCommand(chooseCmd);
+		s.setItemCommandListener(this);
+		f.append(fromBtn = s);
+		
+		// reverse btn
+		s = new StringItem("", "<->", StringItem.BUTTON);
+		s.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+		s.addCommand(reverseCmd);
+		s.setDefaultCommand(reverseCmd);
+		s.setItemCommandListener(this);
+		f.append(s);
+		
+		s = new StringItem("Куда", "Не выбрано", StringItem.BUTTON);
+		s.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+		s.addCommand(chooseCmd);
+		s.setDefaultCommand(chooseCmd);
+		s.setItemCommandListener(this);
+		f.append(toBtn = s);
+		
+		s = new StringItem(null, "Поиск", StringItem.BUTTON);
+		s.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+		s.addCommand(submitCmd);
+		s.setDefaultCommand(submitCmd);
+		s.setItemCommandListener(this);
+		f.append(s);
+		
 		display(mainForm = f);
 		loadingForm = null;
 		if(isJ2MEL() && "Nokia 6233".equals(System.getProperty("microedition.platform"))) {
@@ -261,11 +274,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		}
 	}
 	
-	public void commandAction(Command c, Item i) {
+	public void commandAction(Command c, Item item) {
 		if(running) return; // не реагировать если сейчас что-то грузится
 		// нажатие на куда / откуда
 		if(c == chooseCmd) {
-			choosing = i == fromBtn ? 1 : 2;
+			choosing = item == fromBtn ? 1 : 2;
 			if(defaultChoiceType == 1) {
 				if(choosing == 1)
 					fromZone = 0;
@@ -288,8 +301,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		}
 		// нажатие на элемент расписания
 		if(c == itemCmd) {
-			threadUid = (String) uids.get(i);
-			if(i == null) return;
+			threadUid = (String) uids.get(item);
+			if(item == null) return;
 			display(loadingAlert("Загрузка"), null);
 			start(3);
 			return;
@@ -316,6 +329,64 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			display(loadingAlert("Очистка расписаний"), settingsForm);
 			clear = SCHEDULE_RECORDPREFIX;
 			start(4);
+			return;
+		}
+		if (c == teasersCmd) {
+			if (teasersJson == null) return;
+			Form f = new Form("Уведомления");
+			f.addCommand(backCmd);
+			f.setCommandListener(this);
+			
+			StringItem s;
+			int l = teasersJson.size();
+			for (int i = 0; i < l; i++) {
+				JSONObject j = teasersJson.getObject(i);
+				
+				s = new StringItem(null, j.getString("title", "").concat("\n"));
+				f.append(s);
+				
+				String t = j.getString("content", "");
+				StringBuffer sb = new StringBuffer();
+				
+				int d = t.indexOf('<');
+				int o = 0;
+				boolean bold = false;
+				
+				while (d != -1) {
+					if (t.charAt(d + 1) == '/') {
+						if (o != d) {
+							sb.append(t.substring(o, d));
+							
+							s = new StringItem(null, sb.toString());
+							s.setFont(bold ? smallboldfont : smallfont);
+							f.append(s);
+							
+							sb.setLength(0);
+						}
+						if (t.charAt(d + 2) == 'b') bold = false;
+					} else {
+						sb.append(t.substring(o, d));
+						
+						s = new StringItem(null, sb.toString());
+						s.setFont(bold ? smallboldfont : smallfont);
+						f.append(s);
+						
+						sb.setLength(0);
+						
+						if (t.charAt(d + 1) == 'b') bold = true;
+						if (t.charAt(d + 1) == 'l') sb.append("* ");
+					}
+					d = t.indexOf('<', o = t.indexOf('>', d) + 1);
+				}
+				
+				if (o < t.length()) {
+					s = new StringItem(null, t.substring(o + 1));
+					s.setFont(smallfont);
+					f.append(s);
+				}
+			}
+			
+			display(f);
 			return;
 		}
 		this.commandAction(c, mainForm);
@@ -453,12 +524,18 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			return;
 		}
 		if(c == okCmd || c == backCmd) {
+			if(d == resForm) {
+				// back from results
+				display(mainForm);
+				resForm = null;
+				return;
+			}
 			if(d == settingsForm) {
+				// save settings
 				defaultChoiceType = settingsDefaultTypeChoice.getSelectedIndex();
 				try {
 					RecordStore.deleteRecordStore(SETTINGS_RECORDNAME);
-				} catch (Exception e) {
-				}
+				} catch (Exception e) {}
 				try {
 					JSONObject j = new JSONObject();
 					j.put("defaultChoiceType", defaultChoiceType);
@@ -466,23 +543,26 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, true);
 					r.addRecord(b, 0, b.length);
 					r.closeRecordStore();
-				} catch (Exception e) {
-				}
+				} catch (Exception e) {}
+			}
+			if (resForm != null) {
+				display(resForm);
+				return;
 			}
 			display(mainForm);
 			return;
 		}
 		if(c == showGoneCmd) {
 			showGone = true;
-			mainForm.removeCommand(showGoneCmd);
-			mainForm.addCommand(hideGoneCmd);
+			resForm.removeCommand(showGoneCmd);
+			resForm.addCommand(hideGoneCmd);
 			commandAction(submitCmd, d);
 			return;
 		}
 		if(c == hideGoneCmd) {
 			showGone = false;
-			mainForm.removeCommand(hideGoneCmd);
-			mainForm.addCommand(showGoneCmd);
+			resForm.removeCommand(hideGoneCmd);
+			resForm.addCommand(showGoneCmd);
 			commandAction(submitCmd, d);
 			return;
 		}
@@ -492,13 +572,20 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				display(warningAlert("Не выбран один из пунктов"));
 				return;
 			}
-			mainForm.deleteAll();
-			mainForm.append(dateField);
-			mainForm.append(fromBtn);
-			mainForm.append(toBtn);
-			mainForm.append(submitBtn);
-			mainForm.append(text);
+			Form f = new Form("Результаты");
+			f.addCommand(backCmd);
+			f.addCommand(showGone ? hideGoneCmd : showGoneCmd);
+			f.addCommand(addBookmarkCmd);
+			f.addCommand(cacheScheduleCmd);
+			f.setCommandListener(this);
+			
+			text = new StringItem(null, "");
+			text.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_BEFORE);
+			f.append(text);
+			
 //			Display.getDisplay(this).setCurrentItem(text);
+			display(f = resForm);
+			
 			start(2);
 			return;
 		}
@@ -908,6 +995,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		case 2: // выполнить запрос
 			try {
 				uids.clear();
+				Form f = resForm;
+				
 				Calendar cal = Calendar.getInstance();
 				cal.setTime(dateField.getDate());
 				searchDate = cal.get(Calendar.YEAR) + "-" + (cal.get(Calendar.MONTH) + 1) + "-" + cal.get(Calendar.DAY_OF_MONTH);
@@ -937,7 +1026,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 								s.addCommand(itemCmd);
 								s.setDefaultCommand(itemCmd);
 								s.setItemCommandListener(this);
-								mainForm.append(s);
+								f.append(s);
 								uids.put(s, seg.getString("u"));
 							}
 						} else {
@@ -952,6 +1041,19 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				}
 				// время сервера в UTC
 				Calendar server_time = parseDate(j.getObject("date_time").getString("server_time"));
+				
+				JSONArray teasers;
+				if(j.has("teasers") && (teasers = j.getArray("teasers")).size() > 0) {
+					teasersJson = teasers;
+					
+					StringItem s = new StringItem("", "Уведомления");
+					s.setFont(smallfont);
+					s.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+					s.addCommand(teasersCmd);
+					s.setDefaultCommand(teasersCmd);
+					s.setItemCommandListener(this);
+					f.append(s);
+				}
 
 				text.setLabel("");
 				text.setText("Результаты\n");
@@ -1029,7 +1131,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						s.addCommand(itemCmd);
 						s.setDefaultCommand(itemCmd);
 						s.setItemCommandListener(this);
-						mainForm.append(s);
+						f.append(s);
 						uids.put(s, thread.getString("uid"));
 					}
 				}
@@ -1051,11 +1153,23 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			f.setCommandListener(this);
 			try {
 				JSONObject j = api("thread_on_date/" + threadUid + "?date=" + searchDate);
-				f.append(j.getString("title") + "\nОстановки: " + j.getString("stops") + "\n");
+				
+				StringItem s;
+				
+				s = new StringItem(null, j.getString("title") + "\n" + j.getString("number", "") + "\nОстановки: " + j.getString("stops") + "\n");
+				s.setFont(Font.getDefaultFont());
+				f.append(s);
+				
 				for(Enumeration e = j.getArray("stations").elements(); e.hasMoreElements();) {
 					JSONObject station = (JSONObject) e.nextElement();
-					StringItem s = new StringItem("", station.getString("title") + " " + time(station.getNullableString("departure_local"))+"\n");
+					s = new StringItem("", station.getString("title") + " " + time(station.getNullableString("departure_local"))+"\n");
 					s.setFont(smallfont);
+					f.append(s);
+				}
+				
+				if (j.has("days") && !j.isNull("days")) {
+					s = new StringItem(null, "\nДни: " + j.getString("days") + "\n");
+					s.setFont(Font.getDefaultFont());
 					f.append(s);
 				}
 			} catch (Exception e) {
