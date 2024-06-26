@@ -485,12 +485,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 								fc = (FileConnection) Connector.open("file:///" + f);
 								in = fc.openInputStream();
 								byte[] b = readBytes(in, (int) fc.fileSize(), 1024, 2048);
-								RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + zone, true);
 								try {
-									rs.setRecord(1, b, 0, b.length);
-								} catch (Exception e) {
-									rs.addRecord(b, 0, b.length);
-								}
+									RecordStore.deleteRecordStore(STATIONS_RECORDPREFIX + zone);
+								} catch (Exception e) {}
+								RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + zone, true);
+								rs.addRecord(b, 0, b.length);
 								rs.closeRecordStore();
 							}
 						}
