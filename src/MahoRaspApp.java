@@ -139,7 +139,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static Hashtable uids = new Hashtable();
 	private static String clear;
 	private static JSONArray bookmarks;
-	private static JSONArray teasersJson;
+	private static JSONArray teasers;
 	
 	// форма поиска
 	private static Form searchForm;
@@ -332,15 +332,15 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			return;
 		}
 		if (c == teasersCmd) {
-			if (teasersJson == null) return;
+			if (teasers == null) return;
 			Form f = new Form("Уведомления");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
 			
 			StringItem s;
-			int l = teasersJson.size();
+			int l = teasers.size();
 			for (int i = 0; i < l; i++) {
-				JSONObject j = teasersJson.getObject(i);
+				JSONObject j = teasers.getObject(i);
 				
 				s = new StringItem(null, j.getString("title", "").concat("\n"));
 				f.append(s);
@@ -1041,12 +1041,12 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				}
 				// время сервера в UTC
 				Calendar server_time = parseDate(j.getObject("date_time").getString("server_time"));
+
+				text.setLabel("");
+				text.setText("Результаты\n");
 				
-				JSONArray teasers;
-				if(j.has("teasers") && (teasers = j.getArray("teasers")).size() > 0) {
-					teasersJson = teasers;
-					
-					StringItem s = new StringItem("", "Уведомления");
+				if(j.has("teasers") && (teasers = j.getArray("teasers")) != null && teasers.size() > 0) {
+					StringItem s = new StringItem("", "Уведомления", StringItem.BUTTON);
 					s.setFont(smallfont);
 					s.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
 					s.addCommand(teasersCmd);
@@ -1054,9 +1054,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					s.setItemCommandListener(this);
 					f.append(s);
 				}
-
-				text.setLabel("");
-				text.setText("Результаты\n");
 				
 				int count = 0;
 				int count2 = 0;
