@@ -40,6 +40,7 @@ import javax.microedition.rms.RecordStore;
 import cc.nnproject.json.JSON;
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
+import cc.nnproject.json.JSONStream;
 
 public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandListener, Runnable, ItemStateListener {
 	
@@ -960,22 +961,41 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		running = true;
 		switch(run) {
 		case 1: // скачать станции зоны
+			progressAlert.setString("Очищение");
 			try {
-				progressAlert.setString("Скачивание");
-				JSONArray j = api("zone/" + downloadZone).getArray("zone_stations");
-				progressAlert.setString("Парсинг");
+				RecordStore.deleteRecordStore(STATIONS_RECORDPREFIX + downloadZone);
+			} catch (Exception e) {}
+			System.gc();
+			try {
+				// XXX
+				progressAlert.setString("Соединение");
+				HttpConnection hc = (HttpConnection) Connector.open("http://export.rasp.yandex.net/v3/suburban/zone/"
+						.concat(Integer.toString(downloadZone)));
 				JSONArray r = new JSONArray();
-				int l = j.size();
-				for (int i = 0; i < l; i++) {
-					JSONObject s = j.getObject(l);
-					JSONObject rs = new JSONObject();
-					rs.put("d", s.getNullableString("direction"));
-					rs.put("t", s.getString("title"));
-					rs.put("i", s.getString("esr"));
-					r.add(rs);
+				InputStream in = null;
+				try {
+					hc.setRequestMethod("GET");
+					if (hc.getResponseCode() != 200) throw new IOException("Wrong response");
+					progressAlert.setString("Скачивание");
+					JSONStream j = JSONStream.getStream(in = hc.openInputStream());
+//					JSONArray j = api("zone/" + downloadZone).getArray("zone_stations");
+					j.expectNextTrim('{');
+					j.jumpToKey("zone_stations");
+					j.expectNextTrim('[');
+					while (true) {
+						JSONObject s = j.nextObject();
+						JSONObject rs = new JSONObject();
+						rs.put("d", s.getNullableString("direction"));
+						rs.put("t", s.getString("title"));
+						rs.put("i", s.getString("esr"));
+						r.add(rs);
+						if (j.nextTrim() == ']') break;
+					}
+				} finally {
+					if (in != null) in.close();
+					if (hc != null) hc.close();
 				}
 				progressAlert.setString("Запись");
-				j = null;
 				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + downloadZone, true);
 				byte[] b = r.toString().getBytes("UTF-8");
 				rs.addRecord(b, 0, b.length);

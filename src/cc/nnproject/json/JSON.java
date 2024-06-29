@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Arman Jussupgaliyev
+Copyright (c) 2021-2024 Arman Jussupgaliyev
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +29,7 @@ import java.util.Vector;
  * Usage:<p><code>JSONObject obj = JSON.getObject(str);</code></p>
  * <b>Use with proguard argument</b>: <p><code>-optimizations !code/simplification/object</code>
  * @author Shinovon
- * @version 2.1
+ * @version 2.2
  */
 public final class JSON {
 
@@ -297,7 +297,7 @@ public final class JSON {
 				sb.append("\\t");
 				break;
 			default:
-				if (c < 32 || c > 1103) {
+				if (c < 32 || c > 1103 || (c >= '\u0080' && c < '\u00a0')) {
 					String u = Integer.toHexString(c);
 					sb.append("\\u");
 					for (int z = u.length(); z < 4; z++) {
