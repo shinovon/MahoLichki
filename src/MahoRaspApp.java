@@ -962,11 +962,12 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		case 1: // скачать станции зоны
 			try {
 				progressAlert.setString("Скачивание");
-				Enumeration e = api("zone/" + downloadZone).getArray("zone_stations").elements();
+				JSONArray j = api("zone/" + downloadZone).getArray("zone_stations");
 				progressAlert.setString("Парсинг");
 				JSONArray r = new JSONArray();
-				while(e.hasMoreElements()) {
-					JSONObject s = (JSONObject) e.nextElement();
+				int l = j.size();
+				for (int i = 0; i < l; i++) {
+					JSONObject s = j.getObject(l);
 					JSONObject rs = new JSONObject();
 					rs.put("d", s.getNullableString("direction"));
 					rs.put("t", s.getString("title"));
@@ -974,18 +975,20 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					r.add(rs);
 				}
 				progressAlert.setString("Запись");
-				e = null;
+				j = null;
 				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + downloadZone, true);
 				byte[] b = r.toString().getBytes("UTF-8");
 				rs.addRecord(b, 0, b.length);
 				rs.closeRecordStore();
+				b = null;
+				r = null;
 				if(choosing == 3) {
 					showFileList(2);
 					break;
 				}
 				display(searchForm(3, downloadZone, r));
 				break;
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				progressAlert.setString(e.toString());
 			}
 			progressAlert.setCommandListener(midlet);
@@ -1057,11 +1060,15 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				int count = 0;
 				int count2 = 0;
 				// парс маршрутов
-				for(Enumeration e2 = j.getArray("days").elements(); e2.hasMoreElements();) { // дни
-					JSONObject day = (JSONObject) e2.nextElement();
+				JSONArray days = j.getArray("days");
+				int l1 = days.size();
+				for(int i = 0; i < l1; i++) { // дни
+					JSONObject day = days.getObject(i);
+					JSONArray segments = day.getArray("segments");
+					int l2 = segments.size();
 //					mainForm.append(day.getString("date") + "\n");
-					for(Enumeration e3 = day.getArray("segments").elements(); e3.hasMoreElements();) { // сегменты
-						JSONObject seg = (JSONObject) e3.nextElement();
+					for(int k = 0; k < l2; k++) {  // сегменты
+						JSONObject seg = segments.getObject(k);
 						count++;
 
 						JSONObject departure = seg.getObject("departure");
