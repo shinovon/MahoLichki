@@ -32,6 +32,7 @@ import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
 import javax.microedition.lcdui.ItemStateListener;
 import javax.microedition.lcdui.List;
+import javax.microedition.lcdui.Spacer;
 import javax.microedition.lcdui.StringItem;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.midlet.MIDlet;
@@ -358,9 +359,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						if (o != d) {
 							sb.append(t.substring(o, d));
 							
+							f.append(new Spacer(16, 16));
+							
 							s = new StringItem(null, sb.toString());
 							s.setFont(bold ? smallboldfont : smallfont);
 							f.append(s);
+							if(sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
+								f.append(new Spacer(smallfont.charWidth(' ') + 1, smallfont.getHeight()));
 							
 							sb.setLength(0);
 						}
@@ -371,6 +376,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						s = new StringItem(null, sb.toString());
 						s.setFont(bold ? smallboldfont : smallfont);
 						f.append(s);
+						if(sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
+							f.append(new Spacer(smallfont.charWidth(' ') + 1, smallfont.getHeight()));
 						
 						sb.setLength(0);
 						
