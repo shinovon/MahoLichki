@@ -583,7 +583,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			f.append(text);
 			
 //			Display.getDisplay(this).setCurrentItem(text);
-			display(f = resForm);
+			display(resForm = f);
 			
 			start(2);
 			return;
@@ -1434,9 +1434,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		if(type == 2) { // выбран город
 			int id = getCity(searchZone, s);
 			if(choosing == 1) {
+				fromStation = null;
 				fromCity = id;
 				fromBtn.setText(s);
 			} else {
+				toStation = null;
 				toCity = id;
 				toBtn.setText(s);
 			}
