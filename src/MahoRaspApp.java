@@ -135,6 +135,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static int downloadZone;
 	private static int run;
 	private static boolean running;
+	/**
+	 * Если в момент очередного изменения поля старый поиск ещё не окончен, станет
+	 * true. Поиск должен перезапуститься по завершению.
+	 */
+	private static boolean searchFieldDirty;
 	private static String threadUid;
 	private static String searchDate;
 	private static boolean showGone;
@@ -884,7 +889,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 
 	public void itemStateChanged(Item item) {
 		if(item == searchField) { // выполнять поиск при изменениях в поле ввода
-			if(running) return;
+			if(running) {
+				searchFieldDirty = true;
+				return;
+			}
 			start(7);
 		}
 	}
@@ -1323,86 +1331,90 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				display(new Alert("Ошибка", e.toString(), null, AlertType.ERROR));
 			}
 		case 7: // поиск точки
-			try {
-				String query = searchField.getString().toLowerCase().trim();
-				
-				// варианты для поиска по словам
-				String q1 = " ".concat(query);
-				String q2 = "(".concat(query);
-				String q3 = "-".concat(query);
-				
-				searchChoice.deleteAll();
-				search: {
-				if(searchType == 1) { // поиск зоны
-					if(query.length() < 2) break search;
-					int i = 0;
-					while(i < zoneNames.length) {
-						String s = zoneNames[i++];
-						String t = s.toLowerCase();
-						if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
-							continue;
-						searchChoice.append(s, null);
-					}
-				} else if(searchType == 2) { // поиск города
-					if(searchZone == 0) {
-						// глобальный
+			do {
+				searchFieldDirty = false;
+				try {
+					String query = searchField.getString().toLowerCase().trim();
+					
+					// варианты для поиска по словам
+					String q1 = " ".concat(query);
+					String q2 = "(".concat(query);
+					String q3 = "-".concat(query);
+					
+					searchChoice.deleteAll();
+					search: {
+					if(searchType == 1) { // поиск зоны
 						if(query.length() < 2) break search;
 						int i = 0;
-						while(i < cityNames.length) {
-							String s = cityNames[i++];
+						while(i < zoneNames.length) {
+							String s = zoneNames[i++];
 							String t = s.toLowerCase();
 							if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
 								continue;
 							searchChoice.append(s, null);
 						}
-					} else {
-						// внутри одной зоны
-						int i = 0;
-						int[] c;
-						while((c = zonesAndCities[i])[0] != searchZone && ++i < zonesAndCities.length);
-						i = 0;
-						while(i < c.length) {
-							String s = cityNames[c[i++]];
-							String t = s.toLowerCase();
-							if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
+					} else if(searchType == 2) { // поиск города
+						if(searchZone == 0) {
+							// глобальный
+							if(query.length() < 2) break search;
+							int i = 0;
+							while(i < cityNames.length) {
+								String s = cityNames[i++];
+								String t = s.toLowerCase();
+								if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
+									continue;
+								searchChoice.append(s, null);
+							}
+						} else {
+							// внутри одной зоны
+							int i = 0;
+							int[] c;
+							while((c = zonesAndCities[i])[0] != searchZone && ++i < zonesAndCities.length);
+							i = 0;
+							while(i < c.length) {
+								String s = cityNames[c[i++]];
+								String t = s.toLowerCase();
+								if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
+									continue;
+								searchChoice.append(s, null);
+							}
+						}
+					} else if(searchType == 3) { // поиск станции
+						if(query.length() < 2) break search; 
+						int l = searchStations.size(), i = 0;
+						while (i < l) {
+							JSONObject j = searchStations.getObject(i++);
+							// поиск в названии и направлении
+							String t = j.getString("t").toLowerCase();
+							String d = j.getString("d").toLowerCase();
+							if(!d.startsWith(query) && !t.startsWith(query) && t.indexOf(q2) == -1 && t.indexOf(q1) == -1 && t.indexOf(q3) == -1)
 								continue;
-							searchChoice.append(s, null);
+							searchChoice.append(j.getString("t").concat(" - ").concat(j.getString("d")), null);
 						}
 					}
-				} else if(searchType == 3) { // поиск станции
-					if(query.length() < 2) break search; 
-					int l = searchStations.size(), i = 0;
-					while (i < l) {
-						JSONObject j = searchStations.getObject(i++);
-						// поиск в названии и направлении
-						String t = j.getString("t").toLowerCase();
-						String d = j.getString("d").toLowerCase();
-						if(!d.startsWith(query) && !t.startsWith(query) && t.indexOf(q2) == -1 && t.indexOf(q1) == -1 && t.indexOf(q3) == -1)
-							continue;
-						searchChoice.append(j.getString("t").concat(" - ").concat(j.getString("d")), null);
 					}
+					// замена функции "отмена" на "готово"
+					if(searchChoice.getSelectedIndex() != -1) {
+						if(!searchCancel) break;
+	//					searchForm.removeCommand(cancelCmd);
+						searchForm.addCommand(doneCmd);
+						if(searchType == 2) searchForm.addCommand(showStationsCmd);
+						searchCancel = false;
+						break;
+					}
+					if(searchCancel) break;
+					searchForm.removeCommand(doneCmd);
+					if(searchType == 2) searchForm.removeCommand(showStationsCmd);
+	//				searchForm.addCommand(cancelCmd);
+					searchCancel = true;
+				} catch (Throwable e) {
+					Alert a = new Alert("");
+					a.setString(e.toString());
+					display(a);
+					e.printStackTrace();
 				}
-				}
-				// замена функции "отмена" на "готово"
-				if(searchChoice.getSelectedIndex() != -1) {
-					if(!searchCancel) break;
-//					searchForm.removeCommand(cancelCmd);
-					searchForm.addCommand(doneCmd);
-					if(searchType == 2) searchForm.addCommand(showStationsCmd);
-					searchCancel = false;
-					break;
-				}
-				if(searchCancel) break;
-				searchForm.removeCommand(doneCmd);
-				if(searchType == 2) searchForm.removeCommand(showStationsCmd);
-//				searchForm.addCommand(cancelCmd);
-				searchCancel = true;
-			} catch (Throwable e) {
-				Alert a = new Alert("");
-				a.setString(e.toString());
-				display(a);
-				e.printStackTrace();
-			}
+				// field may change in background. Restarting the search if it did.
+			} while(searchFieldDirty);
 			break;
 		}
 		running = false;
