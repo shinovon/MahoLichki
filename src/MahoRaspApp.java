@@ -1359,7 +1359,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 							String t = s.toLowerCase();
 							if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
 								continue;
-							searchChoice.append(s, null);
+							if(t.length() == query.length()) {
+								// проверка на точное совпадение. Полноценный еквалс тут слишком дорог, если
+								// старт совпадает и длины тоже, то они уже равны.
+								searchChoice.insert(0, s, null);
+								searchChoice.setSelectedIndex(0, true);
+							} else
+								searchChoice.append(s, null);
 						}
 					} else if(searchType == 2) { // поиск города
 						if(searchZone == 0) {
@@ -1371,7 +1377,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 								String t = s.toLowerCase();
 								if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
 									continue;
-								searchChoice.append(s, null);
+								if(t.length() == query.length()) {
+									// проверка на точное совпадение. Полноценный еквалс тут слишком дорог, если
+									// старт совпадает и длины тоже, то они уже равны.
+									searchChoice.insert(0, s, null);
+									searchChoice.setSelectedIndex(0, true);
+								} else
+									searchChoice.append(s, null);
 							}
 						} else {
 							// внутри одной зоны
