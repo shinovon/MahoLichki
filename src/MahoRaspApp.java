@@ -963,7 +963,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		int run;
 		synchronized(this) {
 			run = MahoRaspApp.run;
-			notify();
+			notify(); // unblocks the UI
 		}
 		running = true;
 		switch(run) {
@@ -1413,7 +1413,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			synchronized(this) {
 				run = i;
 				new Thread(this).start();
-				wait();
+				wait(); // blocks UI while thread is starting
 			}
 		} catch (Exception e) {}
 	}
