@@ -968,6 +968,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		searchField.setItemCommandListener(midlet);
 		f.append(searchField);
 		searchChoice = new ChoiceGroup("", Choice.EXCLUSIVE);
+		searchChoice.setItemCommandListener(midlet);
 		f.append(searchChoice);
 		f.addCommand(cancelCmd);
 		f.setCommandListener(midlet);
