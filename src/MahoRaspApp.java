@@ -1413,19 +1413,30 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						}
 					}
 					}
-					// замена функции "отмена" на "готово"
+					// добавление функции "готово"
 					if(searchChoice.getSelectedIndex() != -1) {
 						if(!searchCancel) break;
-	//					searchForm.removeCommand(cancelCmd);
-						searchForm.addCommand(doneCmd);
+						String mp = System.getProperty("microedition.platform");
+						if (
+								// 9.2
+								System.getProperty("com.symbian.midp.serversocket.support") != null ||
+								// 9.3
+								(mp.indexOf("sw_platform=s60;sw_platform_version=3.2") != -1
+										&& mp.indexOf("platform=S60") != -1)) {
+							searchField.addCommand(doneCmd);
+							searchField.setDefaultCommand(doneCmd); // for CSK
+							searchChoice.addCommand(doneCmd); // for cmd menu
+						} else
+							searchForm.addCommand(doneCmd);
 						if(searchType == 2) searchForm.addCommand(showStationsCmd);
 						searchCancel = false;
 						break;
 					}
 					if(searchCancel) break;
+					searchField.removeCommand(doneCmd);
+					searchChoice.removeCommand(doneCmd);
 					searchForm.removeCommand(doneCmd);
 					if(searchType == 2) searchForm.removeCommand(showStationsCmd);
-	//				searchForm.addCommand(cancelCmd);
 					searchCancel = true;
 				} catch (Throwable e) {
 					Alert a = new Alert("");
