@@ -1416,13 +1416,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					// добавление функции "готово"
 					if(searchChoice.getSelectedIndex() != -1) {
 						if(!searchCancel) break;
-						String mp = System.getProperty("microedition.platform");
-						if (
-								// 9.2
-								System.getProperty("com.symbian.midp.serversocket.support") != null ||
-								// 9.3
-								(mp.indexOf("sw_platform=s60;sw_platform_version=3.2") != -1
-										&& mp.indexOf("platform=S60") != -1)) {
+						String s = System.getProperty("microedition.platform");
+						boolean is92or93 = (s != null && s.indexOf("sw_platform_version=3.2") != -1)
+						|| (System.getProperty("com.symbian.midp.serversocket.support") != null
+						|| System.getProperty("com.symbian.default.to.suite.icon") != null);
+						if (is92or93) {
 							searchField.addCommand(doneCmd);
 							searchField.setDefaultCommand(doneCmd); // for CSK
 							searchChoice.addCommand(doneCmd); // for cmd menu
