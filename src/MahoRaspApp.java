@@ -75,6 +75,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	
 	// Команды формы поиска
 	private static final Command doneCmd = new Command("Готово", Command.OK, 1);
+	private static final Command doneCmdI = new Command("Готово", Command.ITEM, 1);
 	private static final Command cancelCmd = new Command("Отмена", Command.CANCEL, 1);
 	private static final Command showStationsCmd = new Command("Показать станции", Command.ITEM, 2);
 	
@@ -338,7 +339,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			start(4);
 			return;
 		}
-		if(c == doneCmd) {
+		if(c == doneCmd || c == doneCmdI) {
 			confirmSearch();
 			return;
 		}
@@ -1424,7 +1425,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						if (is92or93) {
 							searchField.addCommand(doneCmd);
 							searchField.setDefaultCommand(doneCmd); // for CSK
-							searchChoice.addCommand(doneCmd); // for cmd menu
+							searchChoice.addCommand(doneCmdI); // for cmd menu
 						} else
 							searchForm.addCommand(doneCmd);
 						if(searchType == 2) searchForm.addCommand(showStationsCmd);
@@ -1433,7 +1434,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					}
 					if(searchCancel) break;
 					searchField.removeCommand(doneCmd);
-					searchChoice.removeCommand(doneCmd);
+					searchChoice.removeCommand(doneCmdI);
 					searchForm.removeCommand(doneCmd);
 					if(searchType == 2) searchForm.removeCommand(showStationsCmd);
 					searchCancel = true;
