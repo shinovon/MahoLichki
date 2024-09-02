@@ -874,8 +874,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 
 	public void itemStateChanged(Item item) {
 		if(item == searchField) { // выполнять поиск при изменениях в поле ввода
+			searchFieldDirty = true;
 			if(running) {
-				searchFieldDirty = true;
 				return;
 			}
 			start(7);
@@ -1342,8 +1342,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 		case 7: // поиск точки
 			do {
-				searchFieldDirty = false;
 				try {
+					searchFieldDirty = false; // текст будет вот-вот получен
 					String query = searchField.getString().toLowerCase().trim();
 					
 					// варианты для поиска по словам
