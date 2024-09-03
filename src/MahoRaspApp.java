@@ -340,10 +340,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			start(4);
 			return;
 		}
-		if(c == doneCmd || c == doneCmdI) {
-			confirmSearch();
-			return;
-		}
 		if (c == teasersCmd) {
 			if (teasers == null) return;
 			Form f = new Form("Уведомления");
@@ -746,7 +742,27 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			return;
 		}
 		if(c == doneCmd) {
-			confirmSearch();
+			int i = searchChoice.getSelectedIndex();
+			if(i == -1) { // если список пустой то отмена
+				cancelChoice();
+				return;
+			}
+			String s = searchChoice.getString(i);
+			if(searchType == 3) { // выбрана станция
+				String esr = null;
+				Enumeration e = searchStations.elements();
+				while(e.hasMoreElements()) {
+					JSONObject j = (JSONObject) e.nextElement();
+					if((j.getString("t") + " - " + j.getString("d")).equals(s)) {
+						esr = j.getString("i");
+						break;
+					}
+				}
+				select(searchType, esr, s);
+				return;
+			}
+			// зона или город
+			select(searchType, s, null);
 			return;
 		}
 		if(c == showStationsCmd) { // показать станции зоны выбранного города
@@ -885,30 +901,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 			start(7);
 		}
-	}
-	
-	private void confirmSearch() {
-		int i = searchChoice.getSelectedIndex();
-		if(i == -1) { // если список пустой то отмена
-			cancelChoice();
-			return;
-		}
-		String s = searchChoice.getString(i);
-		if(searchType == 3) { // выбрана станция
-			String esr = null;
-			Enumeration e = searchStations.elements();
-			while(e.hasMoreElements()) {
-				JSONObject j = (JSONObject) e.nextElement();
-				if((j.getString("t") + " - " + j.getString("d")).equals(s)) {
-					esr = j.getString("i");
-					break;
-				}
-			}
-			select(searchType, esr, s);
-			return;
-		}
-		// зона или город
-		select(searchType, s, null);
 	}
 	
 	private static void showFileList(String f, String title) {
