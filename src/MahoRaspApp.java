@@ -91,13 +91,20 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static final String BOOKMARKS_RECORDNAME = "mahoLbm";
 	
 	private static final String STATIONS_FILEPREFIX = "mLzone_";
+
+	private static final int RUN_DOWNLOAD_STATIONS = 1;
+	private static final int RUN_SUBMIT = 2;
+	private static final int RUN_THREAD_INFO = 3;
+	private static final int RUN_CLEAR_RECORDS = 4;
+	private static final int RUN_BOOKMARKS = 5;
+	private static final int RUN_SAVE = 6;
+	private static final int RUN_SEARCH = 7;
+	private static final int RUN_SEARCH_TIMER = 8;
 	
 	private static MahoRaspApp midlet;
 	private static Display display;
 	private static Font smallfont = Font.getFont(0, 0, 8);
 	private static Font smallboldfont = Font.getFont(0, Font.STYLE_BOLD, 8);
-	
-	private boolean started;
 
 	// бд зон и городов
 	private static int[][] zonesAndCities;
@@ -145,6 +152,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static JSONArray bookmarks;
 	private static JSONArray teasers;
 	
+	private static Object searchLock = new Object();
+	private static boolean searching;
+	private static int searchTimer;
+	private static Thread searchThread;
+	
 	// форма поиска
 	private static Form searchForm;
 	private static int searchType; // 1 - зона, 2 - город, 3 - станция
@@ -162,10 +174,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static int saveZone;
 
 	/// UI
-	
-	public MahoRaspApp() {
-		midlet = this;
-	}
 
 	protected void destroyApp(boolean arg0) {
 	}
@@ -174,8 +182,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 
 	protected void startApp() {
-		if(started) return;
-		started = true;
+		if (midlet != null) return;
+		midlet = this;
 		display = Display.getDisplay(this);
 		display(loadingForm = new Form("Загрузка"));
 		// парс зон
@@ -189,7 +197,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			Vector cityNamesTmp = new Vector();
 			int m = 0;
 			Enumeration e = j.keys();
-			while(e.hasMoreElements()) {
+			while (e.hasMoreElements()) {
 				String k;
 				zoneNames[i] = (k = (String) e.nextElement());
 				JSONObject c = j.getObject(k);
@@ -197,7 +205,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				(zonesAndCities[i] = new int[(c = c.getObject("s")).size() + 1])[0] = n;
 				Enumeration e2 = c.keys();
 				n = 1;
-				while(e2.hasMoreElements()) {
+				while (e2.hasMoreElements()) {
 					String s;
 					cityNamesTmp.addElement((s = (String) e2.nextElement()));
 					cityIdsTmp.addElement(new Integer(c.getInt(s)));
@@ -208,7 +216,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			cityNames = new String[l = cityNamesTmp.size()];
 			cityIds = new int[l];
 			cityNamesTmp.copyInto(cityNames);
-			for(i = 0; i < l; i++) {
+			for (i = 0; i < l; i++) {
 				cityIds[i] = ((Integer) cityIdsTmp.elementAt(i)).intValue();
 			}
 		} catch (Exception e) {
@@ -269,7 +277,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		
 		display(mainForm = f);
 		loadingForm = null;
-		if(isJ2MEL() && "Nokia 6233".equals(System.getProperty("microedition.platform"))) {
+		if (isJ2MEL() && "Nokia 6233".equals(System.getProperty("microedition.platform"))) {
 			// https://github.com/nikita36078/J2ME-Loader/issues/1024
 			Alert a = new Alert("Внимание");
 			a.setString("J2ME Loader поддерживается только с патчем #1026\nЕсли 1.8.0 уже вышла и у вас стоит она или вы пользуетесь JL-Mod, то игнорируйте это сообщение.");
@@ -279,19 +287,19 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 	
 	public void commandAction(Command c, Item item) {
-		if(running) return; // не реагировать если сейчас что-то грузится
+		if (running) return; // не реагировать если сейчас что-то грузится
 		// нажатие на куда / откуда
-		if(c == chooseCmd) {
+		if (c == chooseCmd) {
 			choosing = item == fromBtn ? 1 : 2;
-			if(defaultChoiceType == 1) {
-				if(choosing == 1)
+			if (defaultChoiceType == 1) {
+				if (choosing == 1)
 					fromZone = 0;
 				else
 					toZone = 0;
 				display(searchForm(2, 0, null));
 				return;
 			}
-			if(defaultChoiceType == 2) {
+			if (defaultChoiceType == 2) {
 				display(searchForm(1, choosing == 1 ? fromZone : toZone, null));
 				return;
 			}
@@ -304,35 +312,35 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			return;
 		}
 		// нажатие на элемент расписания
-		if(c == itemCmd) {
+		if (c == itemCmd) {
 			threadUid = (String) uids.get(item);
-			if(item == null) return;
+			if (item == null) return;
 			display(loadingAlert("Загрузка"), null);
-			start(3);
+			start(RUN_THREAD_INFO);
 			return;
 		}
 		// настройки
-		if(c == importStationsCmd) {
+		if (c == importStationsCmd) {
 			showFileList(1);
 			return;
 		}
-		if(c == exportStationsCmd) {
+		if (c == exportStationsCmd) {
 			choosing = 3;
 			display(searchForm(1, 0, null));
 			return;
 		}
-		if(c == clearStationsCmd) {
-			if(running) return;
+		if (c == clearStationsCmd) {
+			if (running) return;
 			display(loadingAlert("Очистка станций"), settingsForm);
 			clear = STATIONS_RECORDPREFIX;
-			start(4);
+			start(RUN_CLEAR_RECORDS);
 			return;
 		}
-		if(c == clearScheduleCmd) {
-			if(running) return;
+		if (c == clearScheduleCmd) {
+			if (running) return;
 			display(loadingAlert("Очистка расписаний"), settingsForm);
 			clear = SCHEDULE_RECORDPREFIX;
-			start(4);
+			start(RUN_CLEAR_RECORDS);
 			return;
 		}
 		if (c == teasersCmd) {
@@ -366,7 +374,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 							s = new StringItem(null, sb.toString());
 							s.setFont(bold ? smallboldfont : smallfont);
 							f.append(s);
-							if(sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
+							if (sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
 								f.append(new Spacer(smallfont.charWidth(' ') + 1, smallfont.getHeight()));
 							
 							sb.setLength(0);
@@ -378,7 +386,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						s = new StringItem(null, sb.toString());
 						s.setFont(bold ? smallboldfont : smallfont);
 						f.append(s);
-						if(sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
+						if (sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
 							f.append(new Spacer(smallfont.charWidth(' ') + 1, smallfont.getHeight()));
 						
 						sb.setLength(0);
@@ -403,27 +411,27 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 
 	public void commandAction(Command c, Displayable d) {
-		if(c == exitCmd) {
+		if (c == exitCmd) {
 			notifyDestroyed();
 			return;
 		}
-		if(d == fileList) {
-			if(c == backCmd) {
-				if(curDir == null) {
+		if (d == fileList) {
+			if (c == backCmd) {
+				if (curDir == null) {
 					fileList = null;
 					display(settingsForm);
 				} else {
-					if(curDir.indexOf("/") == -1) {
+					if (curDir.indexOf("/") == -1) {
 						fileList = new List("", List.IMPLICIT);
 						fileList.addCommand(backCmd);
 						fileList.setTitle("");
 						fileList.addCommand(List.SELECT_COMMAND);
 						fileList.setSelectCommand(List.SELECT_COMMAND);
 						fileList.setCommandListener(this);
-						for(int i = 0; i < rootsList.size(); i++) {
+						for (int i = 0; i < rootsList.size(); i++) {
 							String s = (String) rootsList.elementAt(i);
-							if(s.startsWith("file:///")) s = s.substring("file:///".length());
-							if(s.endsWith("/")) s = s.substring(0, s.length() - 1);
+							if (s.startsWith("file:///")) s = s.substring("file:///".length());
+							if (s.endsWith("/")) s = s.substring(0, s.length() - 1);
 							fileList.append(s, null);
 						}
 						curDir = null;
@@ -432,7 +440,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					}
 					String sub = curDir.substring(0, curDir.lastIndexOf('/'));
 					String fn = "";
-					if(sub.indexOf('/') != -1) {
+					if (sub.indexOf('/') != -1) {
 						fn = sub.substring(sub.lastIndexOf('/') + 1);
 					} else {
 						fn = sub;
@@ -441,15 +449,15 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					showFileList(sub + "/", fn);
 				}
 			}
-			if(c == dirOpenCmd || c == List.SELECT_COMMAND) {
+			if (c == dirOpenCmd || c == List.SELECT_COMMAND) {
 				String fs = curDir;
 				String f = "";
-				if(fs != null) f += curDir + "/";
+				if (fs != null) f += curDir + "/";
 				String is = fileList.getString(fileList.getSelectedIndex());
-				if("- Выбрать".equals(is)) {
+				if ("- Выбрать".equals(is)) {
 					fileList = null;
 					// экспорт
-					if(fileMode == 2) {
+					if (fileMode == 2) {
 						FileConnection fc = null;
 						OutputStream o = null;
 						try {
@@ -480,17 +488,17 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				}
 				f += is;
 				// импорт
-				if(fileMode == 1 && is.endsWith(".json") && is.startsWith(STATIONS_FILEPREFIX)) {
+				if (fileMode == 1 && is.endsWith(".json") && is.startsWith(STATIONS_FILEPREFIX)) {
 					display(loadingAlert("Импортирование"), settingsForm);
 					FileConnection fc = null;
 					InputStream in = null;
 					try {
 						int zone = Integer.parseInt(is.substring(STATIONS_FILEPREFIX.length(), is.length()-5));
 						String zoneName = null;
-						if(zone > 0) {
+						if (zone > 0) {
 							int i = 0;
-							while(zonesAndCities[i][0] != zone && ++i < zoneNames.length);
-							if(i < zoneNames.length) {
+							while (zonesAndCities[i][0] != zone && ++i < zoneNames.length);
+							if (i < zoneNames.length) {
 								zoneName = zoneNames[i];
 								fc = (FileConnection) Connector.open("file:///" + f);
 								in = fc.openInputStream();
@@ -503,7 +511,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 								rs.closeRecordStore();
 							}
 						}
-						if(zoneName != null)
+						if (zoneName != null)
 							display(infoAlert("Станции зоны \"" + zoneName + "\" импортированы"), settingsForm);
 						else
 							display(warningAlert("Не поддерживаемый ID зоны"), settingsForm);
@@ -525,21 +533,21 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				showFileList(f + "/", is);
 				return;
 			}
-			if(c == dirSelectCmd) {
+			if (c == dirSelectCmd) {
 				fileList = null;
 				curDir = null;
 				display(settingsForm);
 			}
 			return;
 		}
-		if(c == okCmd || c == backCmd) {
-			if(d == resForm) {
+		if (c == okCmd || c == backCmd) {
+			if (d == resForm) {
 				// back from results
 				display(mainForm);
 				resForm = null;
 				return;
 			}
-			if(d == settingsForm) {
+			if (d == settingsForm) {
 				// save settings
 				defaultChoiceType = settingsDefaultTypeChoice.getSelectedIndex();
 				try {
@@ -561,23 +569,23 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			display(mainForm);
 			return;
 		}
-		if(c == showGoneCmd) {
+		if (c == showGoneCmd) {
 			showGone = true;
 			resForm.removeCommand(showGoneCmd);
 			resForm.addCommand(hideGoneCmd);
 			commandAction(submitCmd, d);
 			return;
 		}
-		if(c == hideGoneCmd) {
+		if (c == hideGoneCmd) {
 			showGone = false;
 			resForm.removeCommand(hideGoneCmd);
 			resForm.addCommand(showGoneCmd);
 			commandAction(submitCmd, d);
 			return;
 		}
-		if(c == submitCmd) {
-			if(running) return;
-			if((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
+		if (c == submitCmd) {
+			if (running) return;
+			if ((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
 				display(warningAlert("Не выбран один из пунктов"));
 				return;
 			}
@@ -595,10 +603,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 //			Display.getDisplay(this).setCurrentItem(text);
 			display(resForm = f);
 			
-			start(2);
+			start(RUN_SUBMIT);
 			return;
 		}
-		if(c == aboutCmd) {
+		if (c == aboutCmd) {
 			Form f = new Form("О программе");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
@@ -618,7 +626,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			display(f);
 			return;
 		}
-		if(c == settingsCmd) {
+		if (c == settingsCmd) {
 			Form f = new Form("Настройки");
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
@@ -657,15 +665,15 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			display(settingsForm = f);
 			return;
 		}
-		if(c == bookmarksCmd) {
-			if(running) return;
+		if (c == bookmarksCmd) {
+			if (running) return;
 			display(loadingAlert("Загрузка"));
-			start(5);
+			start(RUN_BOOKMARKS);
 			return;
 		}
-		if(c == addBookmarkCmd) {
+		if (c == addBookmarkCmd) {
 			// пункты не выбраны
-			if((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
+			if ((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
 				display(warningAlert("Не выбран один из пунктов"));
 				return;
 			}
@@ -727,36 +735,36 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			display(infoAlert("Закладка добавлена"), null);
 			return;
 		}
-		if(c == cacheScheduleCmd) { // сохранить расписание в кэш
-			if(running) return;
+		if (c == cacheScheduleCmd) { // сохранить расписание в кэш
+			if (running) return;
 			// пункты не выбраны
-			if((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
+			if ((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
 				display(warningAlert("Не выбран один из пунктов"));
 				return;
 			}
 			progressAlert = loadingAlert("Загрузка");
 			progressAlert.setTimeout(Alert.FOREVER);
 			display(progressAlert);
-			start(6);
+			start(RUN_SAVE);
 			return;
 		}
-		if(c == cancelCmd) {
+		if (c == cancelCmd) {
 			cancelChoice();
 			return;
 		}
-		if(c == doneCmd) {
+		if (c == doneCmd) {
 			int i = searchChoice.getSelectedIndex();
-			if(i == -1) { // если список пустой то отмена
+			if (i == -1) { // если список пустой то отмена
 				cancelChoice();
 				return;
 			}
 			String s = searchChoice.getString(i);
-			if(searchType == 3) { // выбрана станция
+			if (searchType == 3) { // выбрана станция
 				String esr = null;
 				Enumeration e = searchStations.elements();
-				while(e.hasMoreElements()) {
+				while (e.hasMoreElements()) {
 					JSONObject j = (JSONObject) e.nextElement();
-					if((j.getString("t") + " - " + j.getString("d")).equals(s)) {
+					if ((j.getString("t") + " - " + j.getString("d")).equals(s)) {
 						esr = j.getString("i");
 						break;
 					}
@@ -768,7 +776,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			select(searchType, s, null);
 			return;
 		}
-		if(c == showStationsCmd) { // показать станции зоны выбранного города
+		if (c == showStationsCmd) { // показать станции зоны выбранного города
 			int idx = searchChoice.getSelectedIndex();
 			if (idx == -1 || searchType != 2) // игнорировать если выбор пустой
 				return;
@@ -789,12 +797,12 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				i++;
 			}
 			
-			if(i == l) return; // поиск не удался
+			if (i == l) return; // поиск не удался
 			
 			int zone = zonesAndCities[i][0];
 			
 			// копипаста показа станций зоны
-			if(choosing == 1) {
+			if (choosing == 1) {
 				fromZone = zone;
 			} else {
 				toZone = zone;
@@ -803,7 +811,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			try {
 				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + zone, false);
 				JSONArray r = JSON.getArray(new String(rs.getRecord(1), "UTF-8"));
-				if(choosing == 3) {
+				if (choosing == 3) {
 					showFileList(2);
 				} else {
 					display(searchForm(3, zone, r));
@@ -820,7 +828,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 			return;
 		}
-		if(c == reverseCmd) { // поменять точки местами
+		if (c == reverseCmd) { // поменять точки местами
 			String s = fromBtn.getText();
 			fromBtn.setText(toBtn.getText());
 			toBtn.setText(s);
@@ -838,29 +846,29 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			toCity = i;
 			return;
 		}
-		if(c == removeBookmarkCmd) { // удалить закладку
-			if(bookmarks == null) return;
+		if (c == removeBookmarkCmd) { // удалить закладку
+			if (bookmarks == null) return;
 			int idx;
 			((List)d).delete(idx = ((List)d).getSelectedIndex());
 			bookmarks.remove(idx);
 			display(infoAlert("Закладка удалена"), null);
 			return;
 		}
-		if(c == List.SELECT_COMMAND) { // выбрана закладка
-			if(bookmarks == null) return;
+		if (c == List.SELECT_COMMAND) { // выбрана закладка
+			if (bookmarks == null) return;
 			JSONObject bm = bookmarks.getObject(((List)d).getSelectedIndex());
 			String s;
 			fromZone = bm.getInt("fz", 0);
 			fromBtn.setText(s = bm.getString("fn"));
-			if((fromStation = bm.getString("fs", null)) == null) {
-				if((fromCity = bm.getInt("fc", 0)) == 0) {
+			if ((fromStation = bm.getString("fs", null)) == null) {
+				if ((fromCity = bm.getInt("fc", 0)) == 0) {
 					fromCity = getCity(fromZone, s);
 				}
 			}
 			toZone = bm.getInt("tz", 0);
 			toBtn.setText(s = bm.getString("tn"));
-			if((toStation = bm.getString("ts", null)) == null) {
-				if((toCity = bm.getInt("tc", 0)) == 0) {
+			if ((toStation = bm.getString("ts", null)) == null) {
+				if ((toCity = bm.getInt("tc", 0)) == 0) {
 					toCity = getCity(toZone, s);
 				}
 			}
@@ -868,17 +876,17 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			commandAction(submitCmd, d);
 			return;
 		}
-		if(c == Alert.DISMISS_COMMAND) { // игнорировать дефолтное ОК
+		if (c == Alert.DISMISS_COMMAND) { // игнорировать дефолтное ОК
 			return;
 		}
 		// команды диалогов
-		if(d instanceof Alert) {
+		if (d instanceof Alert) {
 			switch (c.getPriority()) {
 			case 1: // выбор зоны перед выбором станции
 				display(searchForm(1, choosing == 1 ? fromZone : toZone, null));
 				break;
 			case 2: // глобальный выбор города
-				if(choosing == 1)
+				if (choosing == 1)
 					fromZone = 0;
 				else
 					toZone = 0;
@@ -891,7 +899,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				progressAlert = loadingAlert("Загрузка станций");
 				progressAlert.setTimeout(Alert.FOREVER);
 				display(progressAlert);
-				start(1);
+				start(RUN_DOWNLOAD_STATIONS);
 				break;
 			case 5:
 				display(searchForm);
@@ -901,9 +909,19 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 
 	public void itemStateChanged(Item item) {
-		if(item == searchField) { // выполнять поиск при изменениях в поле ввода
-			if(running) return;
-			start(7);
+		if (item == searchField) { // выполнять поиск при изменениях в поле ввода
+			if (running) return;
+			if (searchThread == null) {
+				try {
+					synchronized (this) {
+						run = RUN_SEARCH_TIMER;
+						(searchThread = new Thread(this)).start();
+						wait();
+						run = 0;
+					}
+				} catch (Exception e) {}
+			}
+			searchTimer = 5;
 		}
 	}
 	
@@ -914,18 +932,18 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		fileList.addCommand(List.SELECT_COMMAND);
 		fileList.setSelectCommand(List.SELECT_COMMAND);
 		fileList.setCommandListener(midlet);
-		if(fileMode != 1) {
+		if (fileMode != 1) {
 			fileList.addCommand(dirSelectCmd);
 			fileList.append("- Выбрать", null);
 		}
 		try {
 			FileConnection fc = (FileConnection) Connector.open("file:///" + f);
 			Enumeration list = fc.list();
-			while(list.hasMoreElements()) {
+			while (list.hasMoreElements()) {
 				String s = (String) list.nextElement();
-				if(s.endsWith("/")) {
+				if (s.endsWith("/")) {
 					fileList.append(s.substring(0, s.length() - 1), null);
-				} else if(s.startsWith(STATIONS_FILEPREFIX) && s.endsWith(".json")) {
+				} else if (s.startsWith(STATIONS_FILEPREFIX) && s.endsWith(".json")) {
 					fileList.append(s, null);
 				}
 			}
@@ -939,10 +957,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		fileMode = mode;
 		fileList = new List("", List.IMPLICIT);
 		getRoots();
-		for(int i = 0; i < rootsList.size(); i++) {
+		for (int i = 0; i < rootsList.size(); i++) {
 			String s = (String) rootsList.elementAt(i);
-			if(s.startsWith("file:///")) s = s.substring("file:///".length());
-			if(s.endsWith("/")) s = s.substring(0, s.length() - 1);
+			if (s.startsWith("file:///")) s = s.substring("file:///".length());
+			if (s.endsWith("/")) s = s.substring(0, s.length() - 1);
 			fileList.append(s, null);
 		}
 		fileList.addCommand(List.SELECT_COMMAND);
@@ -954,9 +972,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	
 	private static Form searchForm(int type, int zone, JSONArray stations) {
 //		String zoneName = null;
-//		if(zone != 0) {
+//		if (zone != 0) {
 //			int i = 0;
-//			while(zonesAndCities[i][0] != zone && ++i < zoneNames.length);
+//			while (zonesAndCities[i][0] != zone && ++i < zoneNames.length);
 //			zoneName = zoneNames[i];
 //		}
 		Form f = new Form((type == 1 ? "Выбор зоны" : type == 2 ? "Выбор города" : "Выбор станции")
@@ -980,13 +998,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 
 	public void run() {
 		int run;
-		synchronized(this) {
+		synchronized (this) {
 			run = MahoRaspApp.run;
 			notify(); // unblocks the UI
 		}
-		running = true;
+		running = run != RUN_SEARCH && run != RUN_SEARCH_TIMER;
 		switch(run) {
-		case 1: // скачать станции зоны
+		case RUN_DOWNLOAD_STATIONS: { // скачать станции зоны
 			progressAlert.setString("Очищение");
 			try {
 				RecordStore.deleteRecordStore(STATIONS_RECORDPREFIX + downloadZone);
@@ -1028,7 +1046,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				rs.closeRecordStore();
 				b = null;
 				r = null;
-				if(choosing == 3) {
+				if (choosing == 3) {
 					showFileList(2);
 					break;
 				}
@@ -1040,7 +1058,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			progressAlert.setCommandListener(midlet);
 			progressAlert.addCommand(okCmd);
 			break;
-		case 2: // выполнить запрос
+		}
+		case RUN_SUBMIT: { // выполнить запрос
 			try {
 				uids.clear();
 				Form f = resForm;
@@ -1099,7 +1118,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				text.setLabel("");
 				text.setText("Результаты\n");
 				
-				if(j.has("teasers") && (teasers = j.getArray("teasers")) != null && teasers.size() > 0) {
+				if (j.has("teasers") && (teasers = j.getArray("teasers")) != null && teasers.size() > 0) {
 					StringItem s = new StringItem("", "Уведомления", StringItem.BUTTON);
 					s.setFont(smallfont);
 					s.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
@@ -1114,19 +1133,19 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				// парс маршрутов
 				JSONArray days = j.getArray("days");
 				int l1 = days.size();
-				for(int i = 0; i < l1; i++) { // дни
+				for (int i = 0; i < l1; i++) { // дни
 					JSONObject day = days.getObject(i);
 					JSONArray segments = day.getArray("segments");
 					int l2 = segments.size();
 //					mainForm.append(day.getString("date") + "\n");
-					for(int k = 0; k < l2; k++) {  // сегменты
+					for (int k = 0; k < l2; k++) {  // сегменты
 						JSONObject seg = segments.getObject(k);
 						count++;
 
 						JSONObject departure = seg.getObject("departure");
 						Calendar c = parseDate(departure.getString("time_utc"));
 						// пропускать ушедшие сегодня
-						if(!showGone && oneDay(parseDate(departure.getString("time")), server_time) && c.before(server_time)) continue;
+						if (!showGone && oneDay(parseDate(departure.getString("time")), server_time) && c.before(server_time)) continue;
 						count2++;
 						
 						JSONObject thread = seg.getObject("thread");
@@ -1134,7 +1153,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 
 						String res = "";
 						// платформа отправления
-						if(departure.has("platform")) {
+						if (departure.has("platform")) {
 							res += departure.getString("platform") + "\n";
 						}
 						
@@ -1147,36 +1166,36 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						
 						// тариф
 						JSONObject tariff = seg.getNullableObject("tariff");
-						if(tariff != null) res += replaceOnce(tariff.getString("value"), ".0", "") + " " + tariff.getString("currency") + "\n";
+						if (tariff != null) res += replaceOnce(tariff.getString("value"), ".0", "") + " " + tariff.getString("currency") + "\n";
 						
 						// опоздание
-						if(departure.has("state")) {
+						if (departure.has("state")) {
 							JSONObject state = departure.getObject("state");
 							int minutes_from = state.getInt("minutes_from", -1);
 							int minutes_to = state.getInt("minutes_to", -1);
-							if(minutes_from >= 0 && minutes_to >= 0) {
-								if(c.before(server_time)) { // ушел
-									if(minutes_from == 0) {
+							if (minutes_from >= 0 && minutes_to >= 0) {
+								if (c.before(server_time)) { // ушел
+									if (minutes_from == 0) {
 										res += "Ушёл по расписанию";
 									} else {
 										res += "Ушёл позже на " + minutes_from + " мин.";
 									}
-								} else if(minutes_from > 0 || minutes_to > 0) {
+								} else if (minutes_from > 0 || minutes_to > 0) {
 									res += "Возможно опоздание ";
-									if(minutes_from == minutes_to) {
+									if (minutes_from == minutes_to) {
 										res += "на " + minutes_from + " мин.";
 									} else {
 										res += "от " + minutes_from + " до " + minutes_to + " мин.";
 									}
 								}
 								res += "\n";
-							} else if(state.has("type") && "possible_delay".equals(state.getString("type"))) {
+							} else if (state.has("type") && "possible_delay".equals(state.getString("type"))) {
 								res += "Возможно опоздание\n";
 							}
 						}
 						
 						// транспорт
-						if(thread.has("transport") && thread.getObject("transport").has("subtype")) {
+						if (thread.has("transport") && thread.getObject("transport").has("subtype")) {
 							res += replaceOnce(thread.getObject("transport").getObject("subtype").getString("title"),"<br/>","\n") + "\n";
 						}
 
@@ -1190,10 +1209,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						uids.put(s, thread.getString("uid"));
 					}
 				}
-				if(count == 0) {
+				if (count == 0) {
 					text.setLabel("Результаты");
 					text.setText("Пусто");
-				} else if(count2 == 0) {
+				} else if (count2 == 0) {
 					text.setLabel("Результаты");
 					text.setText("Все электрички уехали");
 				}
@@ -1202,7 +1221,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				text.setText(e.toString());
 			}
 			break;
-		case 3: { // доп информация по маршруту
+		}
+		case RUN_THREAD_INFO: { // доп информация по маршруту
 			Form f = new Form(threadUid);
 			f.addCommand(backCmd);
 			f.setCommandListener(this);
@@ -1215,7 +1235,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				s.setFont(Font.getDefaultFont());
 				f.append(s);
 				
-				for(Enumeration e = j.getArray("stations").elements(); e.hasMoreElements();) {
+				for (Enumeration e = j.getArray("stations").elements(); e.hasMoreElements();) {
 					JSONObject station = (JSONObject) e.nextElement();
 					s = new StringItem("", station.getString("title") + " " + time(station.getNullableString("departure_local"))+"\n");
 					s.setFont(smallfont);
@@ -1233,12 +1253,12 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			display(f);
 			break;
 		}
-		case 4: // очистка рекордов
+		case RUN_CLEAR_RECORDS: { // очистка рекордов
 			try {
 				String[] records = RecordStore.listRecordStores();
-				for(int i = 0; i < records.length; i++) {
+				for (int i = 0; i < records.length; i++) {
 					String record = records[i];
-					if(record.startsWith(clear)) {
+					if (record.startsWith(clear)) {
 						try {
 							RecordStore.deleteRecordStore(record);
 						} catch (Exception e) {
@@ -1249,19 +1269,20 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 			display(mainForm);
 			break;
-		case 5: { // закладки
+		}
+		case RUN_BOOKMARKS: { // закладки
 			List l = new List("Закладки", List.IMPLICIT);
 			l.addCommand(backCmd);
 			l.addCommand(List.SELECT_COMMAND);
 			l.setCommandListener(this);
 			try {
-				if(bookmarks == null) {
+				if (bookmarks == null) {
 					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
 					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
 					r.closeRecordStore();
 				}
 				l.addCommand(removeBookmarkCmd);
-				for(Enumeration e = bookmarks.elements(); e.hasMoreElements();) {
+				for (Enumeration e = bookmarks.elements(); e.hasMoreElements();) {
 					JSONObject bm = (JSONObject) e.nextElement();
 					l.append(bm.getString("fn") + " - " + bm.getString("tn"), null);
 				}
@@ -1274,8 +1295,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			display(l);
 			break;
 		}
-		case 6: // сохранение расписания
-			if((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
+		case RUN_SAVE: { // сохранение расписания
+			if ((fromCity == 0 && fromStation == null) || (toCity == 0 && toStation == null)) {
 				break;
 			}
 			progressAlert.setString("Удаление");
@@ -1291,9 +1312,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				JSONObject j = api("search_on_date?date=" + searchDate + "&" + (fromStation != null ? ("station_from=" + fromStation) : ("city_from=" + fromCity)) + "&" + (toStation != null ? ("station_to=" + toStation) : ("city_to=" + toCity)));
 				progressAlert.setString("Парс");
 				r.put("t", j.getObject("date_time").getString("server_time"));
-				for(Enumeration e2 = j.getArray("days").elements(); e2.hasMoreElements();) {
+				for (Enumeration e2 = j.getArray("days").elements(); e2.hasMoreElements();) {
 					JSONObject day = (JSONObject) e2.nextElement();
-					for(Enumeration e3 = day.getArray("segments").elements(); e3.hasMoreElements();) { 
+					for (Enumeration e3 = day.getArray("segments").elements(); e3.hasMoreElements();) { 
 						JSONObject seg = (JSONObject) e3.nextElement();
 						JSONObject sr = new JSONObject();
 
@@ -1307,32 +1328,32 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						sr.put("t", time(departure.getString("time")) + " - " + time(arrival.getString("time")) + " (" + seg.getString("duration") + " мин)");
 						
 						String res = "";
-						if(departure.has("platform")) {
+						if (departure.has("platform")) {
 							res += departure.getString("platform") + "\n";
 						}
 						res += thread.getString("title_short", thread.getString("title")) + "\n";
 						
 						JSONObject tariff = seg.getNullableObject("tariff");
-						if(tariff != null) res += replaceOnce(tariff.getString("value"), ".0", "") + " " + tariff.getString("currency") + "\n";
+						if (tariff != null) res += replaceOnce(tariff.getString("value"), ".0", "") + " " + tariff.getString("currency") + "\n";
 						
-						if(departure.has("state")) {
+						if (departure.has("state")) {
 							JSONObject state = departure.getObject("state");
 							int minutes_from = state.getInt("minutes_from", -1);
 							int minutes_to = state.getInt("minutes_to", -1);
-							if(minutes_from > 0 && minutes_to > 0) {
+							if (minutes_from > 0 && minutes_to > 0) {
 								res += "Возможно опоздание ";
-								if(minutes_from == minutes_to) {
+								if (minutes_from == minutes_to) {
 									res += "на " + minutes_from + " мин.";
 								} else {
 									res += "от " + minutes_from + " до " + minutes_to + " мин.";
 								}
 								res += "\n";
-							} else if(state.has("type") && "possible_delay".equals(state.getString("type"))) {
+							} else if (state.has("type") && "possible_delay".equals(state.getString("type"))) {
 								res += "Возможно опоздание\n";
 							}
 						}
 						
-						if(thread.has("transport") && thread.getObject("transport").has("subtype")) {
+						if (thread.has("transport") && thread.getObject("transport").has("subtype")) {
 							res += thread.getObject("transport").getObject("subtype").getString("title") + "\n";
 						}
 						
@@ -1351,101 +1372,131 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				e.printStackTrace();
 				display(new Alert("Ошибка", e.toString(), null, AlertType.ERROR));
 			}
-		case 7: // поиск точки
-			try {
-				String query = searchField.getString().toLowerCase().trim();
-				
-				// варианты для поиска по словам
-				String q1 = " ".concat(query);
-				String q2 = "(".concat(query);
-				String q3 = "-".concat(query);
-				
-				searchChoice.deleteAll();
-				search: {
-				if(searchType == 1) { // поиск зоны
-					if(query.length() < 2) break search;
-					int i = 0;
-					while(i < zoneNames.length) {
-						String s = zoneNames[i++];
-						String t = s.toLowerCase();
-						if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
-							continue;
-						searchChoice.append(s, null);
+			break;
+		}
+		case RUN_SEARCH: { // поиск точки
+			if (searching) {
+				// отменить текущий поиск, если что-то уже ищется
+				searchCancel = true;
+				try {
+					synchronized (searchLock) {
+						searchLock.wait();
 					}
-				} else if(searchType == 2) { // поиск города
-					if(searchZone == 0) {
-						// глобальный
-						if(query.length() < 2) break search;
+				} catch (Exception e) {}
+			}
+			searching = true;
+			s: {
+				try {
+					String query = searchField.getString().toLowerCase().trim();
+					
+					// варианты для поиска по словам
+					String q1 = " ".concat(query);
+					String q2 = "(".concat(query);
+					String q3 = "-".concat(query);
+					
+					searchChoice.deleteAll();
+					search: {
+					if (searchType == 1) { // поиск зоны
+						if (query.length() < 2) break search;
 						int i = 0;
-						while(i < cityNames.length) {
-							String s = cityNames[i++];
+						while (i < zoneNames.length) {
+							String s = zoneNames[i++];
 							String t = s.toLowerCase();
-							if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
-								continue;
-							if(t.length() == query.length()) {
-								// проверка на точное совпадение. Полноценный еквалс тут слишком дорог, если
-								// старт совпадает и длины тоже, то они уже равны.
-								searchChoice.insert(0, s, null);
-								searchChoice.setSelectedIndex(0, true);
-							} else
-								searchChoice.append(s, null);
-						}
-					} else {
-						// внутри одной зоны
-						int i = 0;
-						int[] c;
-						while((c = zonesAndCities[i])[0] != searchZone && ++i < zonesAndCities.length);
-						i = 0;
-						while(i < c.length) {
-							String s = cityNames[c[i++]];
-							String t = s.toLowerCase();
-							if(!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
+							if (!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
 								continue;
 							searchChoice.append(s, null);
 						}
+					} else if (searchType == 2) { // поиск города
+						if (searchZone == 0) {
+							// глобальный
+							if (query.length() < 2) break search;
+							int i = 0;
+							while (i < cityNames.length) {
+								String s = cityNames[i++];
+								String t = s.toLowerCase();
+								if (!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
+									continue;
+								if (t.length() == query.length()) {
+									// проверка на точное совпадение. Полноценный еквалс тут слишком дорог, если
+									// старт совпадает и длины тоже, то они уже равны.
+									searchChoice.insert(0, s, null);
+									searchChoice.setSelectedIndex(0, true);
+								} else
+									searchChoice.append(s, null);
+							}
+						} else {
+							// внутри одной зоны
+							int i = 0;
+							int[] c;
+							while ((c = zonesAndCities[i])[0] != searchZone && ++i < zonesAndCities.length);
+							i = 0;
+							while (i < c.length) {
+								String s = cityNames[c[i++]];
+								String t = s.toLowerCase();
+								if (!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
+									continue;
+								searchChoice.append(s, null);
+							}
+						}
+					} else if (searchType == 3) { // поиск станции
+						if (query.length() < 2) break search; 
+						int l = searchStations.size(), i = 0;
+						while (i < l) {
+							JSONObject j = searchStations.getObject(i++);
+							// поиск в названии и направлении
+							String t = j.getString("t").toLowerCase();
+							String d = j.getString("d").toLowerCase();
+							if (!d.startsWith(query) && !t.startsWith(query) && t.indexOf(q2) == -1 && t.indexOf(q1) == -1 && t.indexOf(q3) == -1)
+								continue;
+							searchChoice.append(j.getString("t").concat(" - ").concat(j.getString("d")), null);
+						}
 					}
-				} else if(searchType == 3) { // поиск станции
-					if(query.length() < 2) break search; 
-					int l = searchStations.size(), i = 0;
-					while (i < l) {
-						JSONObject j = searchStations.getObject(i++);
-						// поиск в названии и направлении
-						String t = j.getString("t").toLowerCase();
-						String d = j.getString("d").toLowerCase();
-						if(!d.startsWith(query) && !t.startsWith(query) && t.indexOf(q2) == -1 && t.indexOf(q1) == -1 && t.indexOf(q3) == -1)
-							continue;
-						searchChoice.append(j.getString("t").concat(" - ").concat(j.getString("d")), null);
 					}
-				}
-				}
 					// добавление функции "готово"
-				if(searchChoice.getSelectedIndex() != -1) {
-					if(!searchCancel) break;
-					searchForm.addCommand(doneCmd);
-					if(searchType == 2) searchForm.addCommand(showStationsCmd);
-					searchCancel = false;
-					break;
-				}
-				if(searchCancel) break;
+					if (searchChoice.getSelectedIndex() != -1) {
+						if (!searchCancel) break;
+						searchForm.addCommand(doneCmd);
+						if (searchType == 2) searchForm.addCommand(showStationsCmd);
+						searchCancel = false;
+						break;
+					}
+					if (searchCancel) break;
 					searchField.removeCommand(doneCmd);
 					searchChoice.removeCommand(doneCmdI);
-				searchForm.removeCommand(doneCmd);
-				if(searchType == 2) searchForm.removeCommand(showStationsCmd);
-				searchCancel = true;
-			} catch (Throwable e) {
-				Alert a = new Alert("");
-				a.setString(e.toString());
-				display(a);
-				e.printStackTrace();
+					searchForm.removeCommand(doneCmd);
+					if (searchType == 2) searchForm.removeCommand(showStationsCmd);
+					searchCancel = true;
+				} catch (Throwable e) {
+					if (searchCancel) break s;
+					Alert a = new Alert("");
+					a.setString(e.toString());
+					display(a);
+					e.printStackTrace();
+				}
 			}
-			break;
+			searchCancel = searching = false;
+			synchronized (searchLock) {
+				searchLock.notifyAll();
+			}
+			return;
+		}
+		case RUN_SEARCH_TIMER: {
+			try {
+				while (true) {
+					if (searchTimer > 0 && --searchTimer == 0) start(RUN_SEARCH);
+					Thread.sleep(100);
+				}
+			} catch (Exception ignored) {}
+			searchThread = null;
+			return;
+		}
 		}
 		running = false;
 	}
 
 	private void start(int i) {
 		try {
-			synchronized(this) {
+			synchronized (this) {
 				run = i;
 				new Thread(this).start();
 				wait(); // blocks UI while thread is starting
@@ -1460,13 +1511,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		searchField = null;
 		searchChoice = null;
 		searchStations = null;
-		if(type == 1) { // выбрана зона
+		if (type == 1) { // выбрана зона
 			int id = 0;
-			while(!s.equals(zoneNames[id]) && ++id < zoneNames.length);
+			while (!s.equals(zoneNames[id]) && ++id < zoneNames.length);
 			id = zonesAndCities[id][0];
-			if(choosing == 3) {
+			if (choosing == 3) {
 				saveZone = id;
-			} else if(choosing == 1) {
+			} else if (choosing == 1) {
 				fromZone = id;
 			} else {
 				toZone = id;
@@ -1475,7 +1526,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			try {
 				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + id, false);
 				JSONArray r = JSON.getArray(new String(rs.getRecord(1), "UTF-8"));
-				if(choosing == 3) {
+				if (choosing == 3) {
 					showFileList(2);
 				} else {
 					display(searchForm(3, id, r));
@@ -1493,9 +1544,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 			return;
 		}
-		if(type == 2) { // выбран город
+		if (type == 2) { // выбран город
 			int id = getCity(searchZone, s);
-			if(choosing == 1) {
+			if (choosing == 1) {
 				fromStation = null;
 				fromCity = id;
 				fromBtn.setText(s);
@@ -1507,8 +1558,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			display(mainForm);
 			return;
 		}
-		if(type == 3) { // выбрана станция
-			if(choosing == 1) {
+		if (type == 3) { // выбрана станция
+			if (choosing == 1) {
 				fromStation = s;
 				fromBtn.setText(s2);
 			} else {
@@ -1523,7 +1574,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private void cancelChoice() {
 		// выбор отменен
 		/*
-		if(choosing == 1) {
+		if (choosing == 1) {
 			fromSettlement = 0;
 			fromStation = null;
 			fromBtn.setText("Не выбрано");
@@ -1542,14 +1593,14 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	
 	private static int getCity(int zone, String name) {
 		int r = 0;
-		if(zone == 0) {
-			while(!name.equals(cityNames[r]) && ++r < cityNames.length);
+		if (zone == 0) {
+			while (!name.equals(cityNames[r]) && ++r < cityNames.length);
 		} else {
 			int i = 0;
 			int[] z;
-			while((z = zonesAndCities[i])[0] != zone && ++i < zonesAndCities.length);
+			while ((z = zonesAndCities[i])[0] != zone && ++i < zonesAndCities.length);
 			i = 0;
-			while(!name.equals((cityNames[r = z[i]])) && ++i < z.length);
+			while (!name.equals((cityNames[r = z[i]])) && ++i < z.length);
 		}
 		return r == cityNames.length ? 0 : cityIds[r];
 	}
@@ -1557,7 +1608,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	/// Утилки
 	
 	private static void display(Alert a, Displayable d) {
-		if(d == null) {
+		if (d == null) {
 			display.setCurrent(a);
 			return;
 		}
@@ -1565,7 +1616,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 
 	private static void display(Displayable d) {
-		if(d instanceof Alert) {
+		if (d instanceof Alert) {
 			display.setCurrent((Alert) d, mainForm);
 			return;
 		}
@@ -1603,7 +1654,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		byte[] readBuf = new byte[bufferSize];
 		int readLen;
 		while ((readLen = inputStream.read(readBuf)) != -1) {
-			if(count + readLen > buf.length) {
+			if (count + readLen > buf.length) {
 				byte[] newbuf = new byte[count + expandSize];
 				System.arraycopy(buf, 0, newbuf, 0, count);
 				buf = newbuf;
@@ -1611,7 +1662,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			System.arraycopy(readBuf, 0, buf, count, readLen);
 			count += readLen;
 		}
-		if(buf.length == count) {
+		if (buf.length == count) {
 			return buf;
 		}
 		byte[] res = new byte[count];
@@ -1620,7 +1671,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 	
 	private static String n(int n) {
-		if(n < 10) {
+		if (n < 10) {
 			return "0".concat(Integer.toString(n));
 		} else return Integer.toString(n);
 	}
@@ -1628,15 +1679,15 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	// парсер даты ISO 8601 без учета часового пояса
 	private static Calendar parseDate(String date) {
 		Calendar c = Calendar.getInstance();
-		if(date.indexOf('T') != -1) {
+		if (date.indexOf('T') != -1) {
 			String[] dateSplit = split(date.substring(0, date.indexOf('T')), '-');
 			String[] timeSplit = split(date.substring(date.indexOf('T')+1), ':');
 			String second = split(timeSplit[2], '.')[0];
 			int i = second.indexOf('+');
-			if(i == -1) {
+			if (i == -1) {
 				i = second.indexOf('-');
 			}
-			if(i != -1) {
+			if (i != -1) {
 				second = second.substring(0, i);
 			}
 			c.set(Calendar.YEAR, Integer.parseInt(dateSplit[0]));
@@ -1655,7 +1706,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 
 	private static String time(String date) {
-		if(date == null) return "";
+		if (date == null) return "";
 		Calendar c = parseDate(date);
 		//return c.get(Calendar.DAY_OF_MONTH) + " " + localizeMonthWithCase(c.get(Calendar.MONTH)) + " " +
 		return n(c.get(Calendar.HOUR_OF_DAY)) + ":" + n(c.get(Calendar.MINUTE));
@@ -1668,11 +1719,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 	
 	private static String duration(int minutes) {
-		if(minutes > 24 * 60) {
+		if (minutes > 24 * 60) {
 			minutes /= 60;
 			return (minutes / 24) + " д. " + (minutes % 24) + " ч.";
 		}
-		if(minutes > 60) {
+		if (minutes > 60) {
 			return (minutes / 60) + " ч. " + (minutes % 60) + " мин";
 		}
 		return minutes + " мин";
@@ -1688,7 +1739,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				i = j + 1;
 			}
 		}
-		if(v.size() == 0) return new String[] {str};
+		if (v.size() == 0) return new String[] {str};
 		if (i < arr.length)
 			v.addElement(new String(arr, i, arr.length - i));
 		String[] r = new String[v.size()];
@@ -1708,8 +1759,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				in = hc.openInputStream();
 				byte[] buf = new byte[(i = (int) hc.getLength()) == -1 ? 1024 : i];
 				i = 0;
-				while((j = in.read(buf, i, buf.length - i)) != -1) {
-					if((i += j) == buf.length) {
+				while ((j = in.read(buf, i, buf.length - i)) != -1) {
+					if ((i += j) == buf.length) {
 						System.arraycopy(buf, 0, buf = new byte[i + 2048], 0, i);
 					}
 				}
@@ -1726,7 +1777,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 		}
 		r = JSON.getObject((String) r);
-		if(((JSONObject) r).has("error")) {
+		if (((JSONObject) r).has("error")) {
 			// выбрасывать эксепшн с текстом ошибки
 			throw new Exception(((JSONObject) r).getObject("error").getString("text"));
 		}
@@ -1735,7 +1786,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	
 	private static String replaceOnce(String str, String hay, String ned) {
 		int idx = str.indexOf(hay);
-		if(idx != -1) {
+		if (idx != -1) {
 			str = str.substring(0, idx) + ned + str.substring(idx+hay.length());
 		}
 		return str;
@@ -1751,13 +1802,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	}
 	
 	public static void getRoots() {
-		if(rootsList != null) return;
+		if (rootsList != null) return;
 		rootsList = new Vector();
 		try {
 			Enumeration roots = FileSystemRegistry.listRoots();
-			while(roots.hasMoreElements()) {
+			while (roots.hasMoreElements()) {
 				String s = (String) roots.nextElement();
-				if(s.startsWith("file:///")) s = s.substring("file:///".length());
+				if (s.startsWith("file:///")) s = s.substring("file:///".length());
 				rootsList.addElement(s);
 			}
 		} catch (Exception e) {
