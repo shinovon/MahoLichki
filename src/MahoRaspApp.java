@@ -37,6 +37,7 @@ import javax.microedition.lcdui.StringItem;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.midlet.MIDlet;
 import javax.microedition.rms.RecordStore;
+import javax.microedition.rms.RecordStoreNotFoundException;
 
 import cc.nnproject.json.JSON;
 import cc.nnproject.json.JSONArray;
@@ -682,7 +683,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			String tn = toBtn.getText();
 			
 			// загрузить закладки
-			if(bookmarks == null) {
+			if (bookmarks == null) {
 				try {
 					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
 					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
@@ -693,9 +694,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			} else {
 				// есть ли уже такая закладка
 				int l = bookmarks.size();
-				for(int i = 0; i < l; i++) {
+				for (int i = 0; i < l; i++) {
 					JSONObject j = bookmarks.getObject(i);
-					if(fn.equals(j.getString("fn")) && tn.equals(j.getString("tn"))) return;  
+					if (fn.equals(j.getString("fn")) && tn.equals(j.getString("tn")))
+					{
+						display(infoAlert("Закладка уже существует"));
+						return;
+					}
 				}
 			}
 			
@@ -1054,35 +1059,41 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				JSONObject j;
 				try {
 					j = api("search_on_date?date=" + searchDate + "&" + (fromStation != null ? ("station_from=" + fromStation) : ("city_from=" + fromCity)) + "&" + (toStation != null ? ("station_to=" + toStation) : ("city_to=" + toCity)));
-				} catch (IOException e) {
-					// попробовать загрузить кэшированное расписание
-					try {
-						RecordStore r = RecordStore.openRecordStore(SCHEDULE_RECORDPREFIX + searchDate + (fromStation != null ? ("s" + fromStation) : ("c" + fromCity)) + (toStation != null ? ("s" + toStation) : ("c" + toCity)), false);
-						j = JSON.getObject(new String(r.getRecord(1), "UTF-8"));
-						r.closeRecordStore();
-						JSONArray a = j.getArray("a");
-						if(a.size() > 0) {
-							Calendar c = parseDate(j.getString("t"));
-							text.setLabel(c.get(Calendar.DAY_OF_MONTH) + "." + (c.get(Calendar.MONTH) + 1) + "." + c.get(Calendar.YEAR) + " " + n(c.get(Calendar.HOUR_OF_DAY)) + ":" + n(c.get(Calendar.MINUTE)));
-							text.setText("Результаты (кэш)\n");
+				} catch (Exception e) {
+					if (e instanceof IOException || e instanceof SecurityException) {
+						// попробовать загрузить кэшированное расписание
+						try {
+							RecordStore r = RecordStore.openRecordStore(SCHEDULE_RECORDPREFIX + searchDate
+									+ (fromStation != null ? ("s" + fromStation) : ("c" + fromCity))
+									+ (toStation != null ? ("s" + toStation) : ("c" + toCity)), false);
+							j = JSON.getObject(new String(r.getRecord(1), "UTF-8"));
+							r.closeRecordStore();
+							JSONArray a = j.getArray("a");
+							if (a.size() > 0) {
+								Calendar c = parseDate(j.getString("t"));
+								text.setLabel(c.get(Calendar.DAY_OF_MONTH) + "." + (c.get(Calendar.MONTH) + 1) + "."
+										+ c.get(Calendar.YEAR) + " " + n(c.get(Calendar.HOUR_OF_DAY)) + ":"
+										+ n(c.get(Calendar.MINUTE)));
+								text.setText("Результаты (кэш)\n");
 
-							for(Enumeration e2 = a.elements(); e2.hasMoreElements();) {
-								JSONObject seg = (JSONObject) e2.nextElement();
-								StringItem s = new StringItem(seg.getString("t"), seg.getString("r"));
-								s.setFont(smallfont);
-								s.addCommand(itemCmd);
-								s.setDefaultCommand(itemCmd);
-								s.setItemCommandListener(this);
-								f.append(s);
-								uids.put(s, seg.getString("u"));
+								for (Enumeration e2 = a.elements(); e2.hasMoreElements();) {
+									JSONObject seg = (JSONObject) e2.nextElement();
+									StringItem s = new StringItem(seg.getString("t"), seg.getString("r"));
+									s.setFont(smallfont);
+									s.addCommand(itemCmd);
+									s.setDefaultCommand(itemCmd);
+									s.setItemCommandListener(this);
+									f.append(s);
+									uids.put(s, seg.getString("u"));
+								}
+							} else {
+								text.setLabel("Результаты (кэш)");
+								text.setText("Пусто");
 							}
-						} else {
-							text.setLabel("Результаты (кэш)");
-							text.setText("Пусто");
+						} catch (Exception e2) {
+							text.setLabel("Результаты");
+							text.setText("Нет сети!\n" + e.toString());
 						}
-					} catch (Exception e2) {
-						text.setLabel("Результаты");
-						text.setText("Нет сети!\n" + e.toString());
 					}
 					break;
 				}
@@ -1258,7 +1269,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					JSONObject bm = (JSONObject) e.nextElement();
 					l.append(bm.getString("fn") + " - " + bm.getString("tn"), null);
 				}
+			} catch (RecordStoreNotFoundException e) {
 			} catch (Exception e) {
+				Form erf = new Form("Закладки");
+				erf.append(e.toString());
+				display(erf);
 			}
 			display(l);
 			break;
