@@ -39,7 +39,6 @@ import javax.microedition.midlet.MIDlet;
 import javax.microedition.rms.RecordStore;
 import javax.microedition.rms.RecordStoreNotFoundException;
 
-import cc.nnproject.json.JSON;
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
 import cc.nnproject.json.JSONStream;
@@ -152,10 +151,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static JSONArray bookmarks;
 	private static JSONArray teasers;
 	
-	private static Object searchLock = new Object();
-	private static boolean searching;
-	private static int searchTimer;
-	private static Thread searchThread;
 	
 	// форма поиска
 	private static Form searchForm;
@@ -164,6 +159,11 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static TextField searchField;
 	private static ChoiceGroup searchChoice;
 	private static JSONArray searchStations;
+	private static boolean searchDoneCmdAdded;
+	private static Object searchLock = new Object();
+	private static boolean searching;
+	private static int searchTimer;
+	private static Thread searchThread;
 	private static boolean searchCancel;
 	
 	// файлы
@@ -188,7 +188,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		display(loadingForm = new Form("Загрузка"));
 		// парс зон
 		try {
-			JSONObject j = JSON.getObject(new String(readBytes("".getClass().getResourceAsStream("/zones.json"), 40677, 1024, 2048), "UTF-8"));
+			JSONObject j = JSONObject.parseObject(new String(readBytes("".getClass().getResourceAsStream("/zones.json"), 40677, 1024, 2048), "UTF-8"));
 			int i = 0;
 			int l = j.size();
 			zonesAndCities = new int[l][];
@@ -227,7 +227,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		// загрузка настроек
 		try {
 			RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, false);
-			JSONObject j = JSON.getObject(new String(r.getRecord(1), "UTF-8"));
+			JSONObject j = JSONObject.parseObject(new String(r.getRecord(1), "UTF-8"));
 			r.closeRecordStore();
 			defaultChoiceType = j.getInt("defaultChoiceType", defaultChoiceType);
 		} catch (Exception e) {
@@ -685,7 +685,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			if (bookmarks == null) {
 				try {
 					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
-					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
+					bookmarks = JSONObject.parseArray(new String(r.getRecord(1), "UTF-8"));
 					r.closeRecordStore();
 				} catch (Exception e) {
 					bookmarks = new JSONArray();
@@ -810,7 +810,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			// проверка на наличие станций зоны в памяти
 			try {
 				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + zone, false);
-				JSONArray r = JSON.getArray(new String(rs.getRecord(1), "UTF-8"));
+				JSONArray r = JSONObject.parseArray(new String(rs.getRecord(1), "UTF-8"));
 				if (choosing == 3) {
 					showFileList(2);
 				} else {
@@ -922,7 +922,39 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				} catch (Exception e) {}
 			}
 			searchTimer = 5;
+			return;
 		}
+		if (item == searchChoice) {
+			searchDoneCmd();
+		}
+	}
+	
+	private static void searchDoneCmd() {
+		if (searchChoice.getSelectedIndex() != -1) {
+			if (searchDoneCmdAdded) return;
+			
+			String s = System.getProperty("microedition.platform");
+			boolean is92or93 = (s != null && s.indexOf("sw_platform_version=3.2") != -1)
+					|| (System.getProperty("com.symbian.midp.serversocket.support") != null
+					|| System.getProperty("com.symbian.default.to.suite.icon") != null);
+			if (is92or93) {
+				searchField.addCommand(doneCmd);
+				searchField.setDefaultCommand(doneCmd); // for CSK
+				searchChoice.addCommand(doneCmdI); // for cmd menu
+			} else {
+				searchForm.addCommand(doneCmd);
+			}
+			if (searchType == 2) searchForm.addCommand(showStationsCmd);
+			searchDoneCmdAdded = true;
+			return;
+		}
+		if (!searchDoneCmdAdded) return;
+		
+		searchField.removeCommand(doneCmd);
+		searchChoice.removeCommand(doneCmdI);
+		searchForm.removeCommand(doneCmd);
+		if (searchType == 2) searchForm.removeCommand(showStationsCmd);
+		searchDoneCmdAdded = false;
 	}
 	
 	private static void showFileList(String f, String title) {
@@ -980,7 +1012,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		Form f = new Form((type == 1 ? "Выбор зоны" : type == 2 ? "Выбор города" : "Выбор станции")
 //				+ (zoneName != null ? " (" + zoneName + ")" : "")
 				);
-		searchCancel = true;
+		searchDoneCmdAdded = false;
 		searchType = type;
 		searchZone = zone;
 		searchStations = stations;
@@ -1081,7 +1113,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 							RecordStore r = RecordStore.openRecordStore(SCHEDULE_RECORDPREFIX + searchDate
 									+ (fromStation != null ? ("s" + fromStation) : ("c" + fromCity))
 									+ (toStation != null ? ("s" + toStation) : ("c" + toCity)), false);
-							j = JSON.getObject(new String(r.getRecord(1), "UTF-8"));
+							j = JSONObject.parseObject(new String(r.getRecord(1), "UTF-8"));
 							r.closeRecordStore();
 							JSONArray a = j.getArray("a");
 							if (a.size() > 0) {
@@ -1278,7 +1310,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			try {
 				if (bookmarks == null) {
 					RecordStore r = RecordStore.openRecordStore(BOOKMARKS_RECORDNAME, false);
-					bookmarks = JSON.getArray(new String(r.getRecord(1), "UTF-8"));
+					bookmarks = JSONObject.parseArray(new String(r.getRecord(1), "UTF-8"));
 					r.closeRecordStore();
 				}
 				l.addCommand(removeBookmarkCmd);
@@ -1404,7 +1436,13 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 							String t = s.toLowerCase();
 							if (!t.startsWith(query) && t.indexOf(q1) == -1 /*&& t.indexOf(q2) == -1*/ && t.indexOf(q3) == -1)
 								continue;
-							searchChoice.append(s, null);
+							if(t.length() == query.length()) {
+								// проверка на точное совпадение. Полноценный еквалс тут слишком дорог, если
+								// старт совпадает и длины тоже, то они уже равны.
+								searchChoice.insert(0, s, null);
+								searchChoice.setSelectedIndex(0, true);
+							} else
+								searchChoice.append(s, null);
 						}
 					} else if (searchType == 2) { // поиск города
 						if (searchZone == 0) {
@@ -1452,20 +1490,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						}
 					}
 					}
+					if(searchForm == null || searchCancel) break s;
 					// добавление функции "готово"
-					if (searchChoice.getSelectedIndex() != -1) {
-						if (!searchCancel) break;
-						searchForm.addCommand(doneCmd);
-						if (searchType == 2) searchForm.addCommand(showStationsCmd);
-						searchCancel = false;
-						break;
-					}
-					if (searchCancel) break;
-					searchField.removeCommand(doneCmd);
-					searchChoice.removeCommand(doneCmdI);
-					searchForm.removeCommand(doneCmd);
-					if (searchType == 2) searchForm.removeCommand(showStationsCmd);
-					searchCancel = true;
+					searchDoneCmd();
 				} catch (Throwable e) {
 					if (searchCancel) break s;
 					Alert a = new Alert("");
@@ -1525,7 +1552,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			// проверка на наличие станций зоны в памяти
 			try {
 				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + id, false);
-				JSONArray r = JSON.getArray(new String(rs.getRecord(1), "UTF-8"));
+				JSONArray r = JSONObject.parseArray(new String(rs.getRecord(1), "UTF-8"));
 				if (choosing == 3) {
 					showFileList(2);
 				} else {
@@ -1776,7 +1803,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				}
 			}
 		}
-		r = JSON.getObject((String) r);
+		r = JSONObject.parseObject((String) r);
 		if (((JSONObject) r).has("error")) {
 			// выбрасывать эксепшн с текстом ошибки
 			throw new Exception(((JSONObject) r).getObject("error").getString("text"));
