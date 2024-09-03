@@ -224,7 +224,7 @@ public class JSONObject extends AbstractJSON {
 	}
 	
 	public void put(String name, String s) {
-		table.put(name, s);
+		table.put(name, s == null ? JSON.json_null : s);
 	}
 
 	public void put(String name, int i) {

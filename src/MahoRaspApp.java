@@ -692,10 +692,18 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			JSONObject bm = new JSONObject();
 			bm.put("fn", fn);
 			bm.put("fz", fromZone);
-			bm.put("fs", fromStation);
+			if (fromStation != null) {
+				bm.put("fs", fromStation);
+			} else {
+				bm.put("fc", fromCity);
+			}
 			bm.put("tn", tn);
 			bm.put("tz", toZone);
-			bm.put("ts", toStation);
+			if (toStation != null) {
+				bm.put("ts", toStation);
+			} else {
+				bm.put("tc", toCity);
+			}
 			bookmarks.add(bm);
 			
 			// запись закладок
@@ -839,12 +847,16 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			fromZone = bm.getInt("fz", 0);
 			fromBtn.setText(s = bm.getString("fn"));
 			if((fromStation = bm.getString("fs", null)) == null) {
-				fromCity = getCity(fromZone, s);
+				if((fromCity = bm.getInt("fc", 0)) == 0) {
+					fromCity = getCity(fromZone, s);
+				}
 			}
 			toZone = bm.getInt("tz", 0);
 			toBtn.setText(s = bm.getString("tn"));
 			if((toStation = bm.getString("ts", null)) == null) {
-				toCity = getCity(toZone, s);
+				if((toCity = bm.getInt("tc", 0)) == 0) {
+					toCity = getCity(toZone, s);
+				}
 			}
 			display(mainForm);
 			commandAction(submitCmd, d);
