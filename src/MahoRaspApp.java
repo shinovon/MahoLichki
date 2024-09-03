@@ -752,7 +752,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			cancelChoice();
 			return;
 		}
-		if (c == doneCmd) {
+		if (c == doneCmd || c == doneCmdI) {
 			int i = searchChoice.getSelectedIndex();
 			if (i == -1) { // если список пустой то отмена
 				cancelChoice();
