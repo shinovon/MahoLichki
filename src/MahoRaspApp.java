@@ -601,7 +601,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			f.append(text);
 			
 //			Display.getDisplay(this).setCurrentItem(text);
-			display(resForm = f);
+			resForm = f;
+			display(loadingAlert("Загрузка..."));
 			
 			start(RUN_SUBMIT);
 			return;
@@ -1092,9 +1093,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			break;
 		}
 		case RUN_SUBMIT: { // выполнить запрос
+			Form f = resForm;
 			try {
 				uids.clear();
-				Form f = resForm;
 				
 				Calendar cal = Calendar.getInstance();
 				cal.setTime(dateField.getDate());
@@ -1252,6 +1253,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				e.printStackTrace();
 				text.setText(e.toString());
 			}
+			if (resForm == f)
+				display(f);
 			break;
 		}
 		case RUN_THREAD_INFO: { // доп информация по маршруту
