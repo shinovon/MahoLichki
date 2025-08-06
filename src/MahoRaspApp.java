@@ -175,7 +175,9 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 
 	/// UI
 
-	protected void destroyApp(boolean arg0) {
+	protected void destroyApp(boolean u) {
+		saveSettings();
+		notifyDestroyed();
 	}
 
 	protected void pauseApp() {
@@ -225,11 +227,27 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			return;
 		}
 		// загрузка настроек
+		String from = null, to = null;
 		try {
 			RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, false);
 			JSONObject j = JSONObject.parseObject(new String(r.getRecord(1), "UTF-8"));
 			r.closeRecordStore();
 			defaultChoiceType = j.getInt("defaultChoiceType", defaultChoiceType);
+			String s;
+			fromZone = j.getInt("fz", 0);
+			from = s = j.getString("fn");
+			if ((fromStation = j.getString("fs", null)) == null) {
+				if ((fromCity = j.getInt("fc", 0)) == 0) {
+					fromCity = getCity(fromZone, s);
+				}
+			}
+			toZone = j.getInt("tz", 0);
+			to = s = j.getString("tn");
+			if ((toStation = j.getString("ts", null)) == null) {
+				if ((toCity = j.getInt("tc", 0)) == 0) {
+					toCity = getCity(toZone, s);
+				}
+			}
 		} catch (Exception e) {
 		}
 		// главная форма
@@ -246,7 +264,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		
 		StringItem s;
 		
-		s = new StringItem("Откуда", "Не выбрано", StringItem.BUTTON);
+		s = new StringItem("Откуда", from != null ? from : "Не выбрано", StringItem.BUTTON);
 		s.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
 		s.addCommand(chooseCmd);
 		s.setDefaultCommand(chooseCmd);
@@ -261,7 +279,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		s.setItemCommandListener(this);
 		f.append(s);
 		
-		s = new StringItem("Куда", "Не выбрано", StringItem.BUTTON);
+		s = new StringItem("Куда", to != null ? to : "Не выбрано", StringItem.BUTTON);
 		s.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
 		s.addCommand(chooseCmd);
 		s.setDefaultCommand(chooseCmd);
@@ -412,7 +430,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 
 	public void commandAction(Command c, Displayable d) {
 		if (c == exitCmd) {
-			notifyDestroyed();
+			destroyApp(true);
 			return;
 		}
 		if (d == fileList) {
@@ -550,17 +568,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			if (d == settingsForm) {
 				// save settings
 				defaultChoiceType = settingsDefaultTypeChoice.getSelectedIndex();
-				try {
-					RecordStore.deleteRecordStore(SETTINGS_RECORDNAME);
-				} catch (Exception e) {}
-				try {
-					JSONObject j = new JSONObject();
-					j.put("defaultChoiceType", defaultChoiceType);
-					byte[] b = j.toString().getBytes("UTF-8");
-					RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, true);
-					r.addRecord(b, 0, b.length);
-					r.closeRecordStore();
-				} catch (Exception e) {}
+				saveSettings();
 			}
 			if (resForm != null) {
 				display(resForm);
@@ -1635,6 +1643,34 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		return r == cityNames.length ? 0 : cityIds[r];
 	}
 	
+	private static void saveSettings() {
+		try {
+			RecordStore.deleteRecordStore(SETTINGS_RECORDNAME);
+		} catch (Exception e) {}
+		try {
+			JSONObject j = new JSONObject();
+			j.put("defaultChoiceType", defaultChoiceType);
+			j.put("fn", fromBtn.getText());
+			j.put("fz", fromZone);
+			if (fromStation != null) {
+				j.put("fs", fromStation);
+			} else {
+				j.put("fc", fromCity);
+			}
+			j.put("tn", toBtn.getText());
+			j.put("tz", toZone);
+			if (toStation != null) {
+				j.put("ts", toStation);
+			} else {
+				j.put("tc", toCity);
+			}
+			byte[] b = j.toString().getBytes("UTF-8");
+			RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, true);
+			r.addRecord(b, 0, b.length);
+			r.closeRecordStore();
+		} catch (Exception e) {}
+	}
+	
 	/// Утилки
 	
 	private static void display(Alert a, Displayable d) {
@@ -1657,7 +1693,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		Alert a = new Alert("");
 		a.setString(text);
 		a.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
-		a.setTimeout(30000);
+		a.setTimeout(Alert.FOREVER);
+		a.setCommandListener(midlet);
 		return a;
 	}
 
