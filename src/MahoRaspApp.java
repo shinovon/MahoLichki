@@ -78,6 +78,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static final Command doneCmdI = new Command("Готово", Command.ITEM, 1);
 	private static final Command cancelCmd = new Command("Отмена", Command.CANCEL, 1);
 	private static final Command showStationsCmd = new Command("Показать станции", Command.ITEM, 2);
+	private static final Command lastSelectedZoneCmd = new Command("Последняя зона", Command.SCREEN, 3);
 	
 	// команды файл менеджера
 	private final static Command dirOpenCmd = new Command("Открыть", Command.ITEM, 1);
@@ -113,6 +114,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	
 	// Настройки
 	private static int defaultChoiceType = 1; // 1 - город, 2 - станция, 0 - спрашивать
+	private static int lastSelectedZone;
 	
 	private static Form mainForm;
 	private static Form loadingForm;
@@ -248,6 +250,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					toCity = getCity(toZone, s);
 				}
 			}
+			lastSelectedZone = j.getInt("lz", 0);
 		} catch (Exception e) {
 		}
 		// главная форма
@@ -423,6 +426,10 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			}
 			
 			display(f);
+			return;
+		}
+		if (c == lastSelectedZoneCmd) {
+			select(1, ((StringItem) item).getText(), null);
 			return;
 		}
 		this.commandAction(c, mainForm);
@@ -1031,6 +1038,17 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 		searchChoice = new ChoiceGroup("", Choice.EXCLUSIVE);
 		searchChoice.setItemCommandListener(midlet);
 		f.append(searchChoice);
+		if (type == 1 && lastSelectedZone != 0) {
+			int i = 0;
+			while (zonesAndCities[i][0] != lastSelectedZone && ++i < zoneNames.length);
+			if (i < zoneNames.length) {
+				StringItem s = new StringItem(null, zoneNames[i], StringItem.BUTTON);
+				s.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_EXPAND);
+				s.setDefaultCommand(lastSelectedZoneCmd);
+				s.setItemCommandListener(midlet);
+				f.append(s);
+			}
+		}
 		f.addCommand(cancelCmd);
 		f.setCommandListener(midlet);
 		f.setItemStateListener(midlet);
@@ -1327,7 +1345,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				l.addCommand(removeBookmarkCmd);
 				for (Enumeration e = bookmarks.elements(); e.hasMoreElements();) {
 					JSONObject bm = (JSONObject) e.nextElement();
-					l.append(bm.getString("fn") + " - " + bm.getString("tn"), null);
+					l.append(bm.getString("fn") + " -> " + bm.getString("tn"), null);
 				}
 			} catch (RecordStoreNotFoundException e) {
 			} catch (Exception e) {
@@ -1560,6 +1578,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			} else {
 				toZone = id;
 			}
+			lastSelectedZone = id;
 			// проверка на наличие станций зоны в памяти
 			try {
 				RecordStore rs = RecordStore.openRecordStore(STATIONS_RECORDPREFIX + id, false);
@@ -1664,6 +1683,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 			} else {
 				j.put("tc", toCity);
 			}
+			j.put("lz", lastSelectedZone);
 			byte[] b = j.toString().getBytes("UTF-8");
 			RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, true);
 			r.addRecord(b, 0, b.length);
