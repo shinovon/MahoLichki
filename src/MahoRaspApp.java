@@ -162,7 +162,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 	private static ChoiceGroup searchChoice;
 	private static JSONArray searchStations;
 	private static boolean searchDoneCmdAdded;
-	private static Object searchLock = new Object();
+	private static final Object searchTimerLock = new Object();
 	private static boolean searching;
 	private static int searchTimer;
 	private static Thread searchThread;
@@ -1104,7 +1104,6 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				rs.addRecord(b, 0, b.length);
 				rs.closeRecordStore();
 				b = null;
-				r = null;
 				if (choosing == 3) {
 					showFileList(2);
 					break;
@@ -1440,8 +1439,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				// отменить текущий поиск, если что-то уже ищется
 				searchCancel = true;
 				try {
-					synchronized (searchLock) {
-						searchLock.wait();
+					synchronized (searchTimerLock) {
+						searchTimerLock.wait();
 					}
 				} catch (Exception e) {}
 			}
@@ -1507,7 +1506,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 						}
 					} else if (searchType == 3) { // поиск станции
 						if (query.length() < 2) break search; 
-						int l = searchStations.size(), i = 0;
+						int l = searchStations.size(), i = 0; // FIXME
 						while (i < l) {
 							JSONObject j = searchStations.getObject(i++);
 							// поиск в названии и направлении
@@ -1531,8 +1530,8 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				}
 			}
 			searchCancel = searching = false;
-			synchronized (searchLock) {
-				searchLock.notifyAll();
+			synchronized (searchTimerLock) {
+				searchTimerLock.notifyAll();
 			}
 			return;
 		}
