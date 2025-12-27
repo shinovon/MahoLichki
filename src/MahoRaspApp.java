@@ -1080,8 +1080,19 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 					hc.setRequestMethod("GET");
 					if (hc.getResponseCode() != 200) throw new IOException("Wrong response");
 					progressAlert.setString("Скачивание");
-					JSONStream j = JSONStream.getStream(in = hc.openInputStream());
+					
 //					JSONArray j = api("zone/" + downloadZone).getArray("zone_stations");
+//					int l = j.size();
+//					for (int i = 0; i < l; i++) {
+//						JSONObject s = j.getObject(i);
+//						JSONObject rs = new JSONObject();
+//						rs.put("d", s.getNullableString("direction"));
+//						rs.put("t", s.getString("title"));
+//						rs.put("i", s.getString("esr"));
+//						r.add(rs);
+//					}
+					
+					JSONStream j = JSONStream.getStream(in = hc.openInputStream());
 					j.expectNextTrim('{');
 					j.jumpToKey("zone_stations");
 					j.expectNextTrim('[');
@@ -1111,6 +1122,7 @@ public class MahoRaspApp extends MIDlet implements CommandListener, ItemCommandL
 				display(searchForm(3, downloadZone, r));
 				break;
 			} catch (Throwable e) {
+				e.printStackTrace();
 				progressAlert.setString(e.toString());
 			}
 			progressAlert.setCommandListener(midlet);
